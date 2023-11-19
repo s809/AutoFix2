@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<a class="btn btn-secondary ml-2" href="..">Назад</a>
+<h2 class="{% include "header_class.html" %}">{% block operation %}{% endblock %} {{ view.model.morphed_name }}</h2>
+{% crispy form %}
+{% for extra_context in extra_contexts %}
+    <hr>
+    {% include 'base_list.html' with view=extra_context.view object_list=extra_context.object_list %}
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,8 @@
+.hide-link {
+    text-decoration: inherit;
+    color: inherit;
+}
+
+form .col-md > .mb-3:not(:first-child) {
+    margin-left: 1em;
+}

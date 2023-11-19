@@ -1,0 +1,67 @@
+<h2 class="{% include "header_class.html" %}">{{ view.plural_name }}</h2>
+<div class="d-flex">
+    {% if not view.model.create_allowed_to or request.user.position in view.model.create_allowed_to or request.user.position == "AD" %}
+        <a class="btn btn-secondary me-2" href="{{request.path}}{% if view.subdir %}{{view.subdir}}{% endif %}create/">Создать</a>
+    {% endif %}
+    {% block extra_buttons %}{% endblock %}
+</div>
+
+<div class="vstack mt-2">
+    {% for item in object_list %}
+        <div class="card my-2 {% if item.card_clickable == False %}text-muted{% endif %}">
+            <div class="card-body">
+                <div class="d-flex col">
+                    {% if item.card_clickable != False %}
+                        <a href="{{ item.get_absolute_url }}" class="hide-link flex-fill d-flex col align-items-center">
+                            {% include 'list_card_content.html' %}
+                        </a>
+                    {% else %}
+                        <div class="flex-fill d-flex col align-items-center pe-none">
+                            {% include 'list_card_content.html' %}
+                        </div>
+                    {% endif %}
+
+                    {% if not view.hide_delete %}
+                        {% if not view.model.create_allowed_to or request.user.position in view.model.create_allowed_to or request.user.position == "AD" %}
+                            <a href="{{ item.get_absolute_url }}?delete" class="my-auto">
+                                <button class="btn btn-light w-auto align-self-center" style="aspect-ratio: 1;">
+                                    <i class="fa-solid fa-trash fa-2x"></i>
+                                </button>
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="m-2">В этом списке нет элементов.</p>
+    {% endfor %}
+</div>
+
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+    <ul class="pagination justify-content-center my-3">
+        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+            <a class="page-link" href="?{{view.query_except_page}}&page=1" tabindex="-1">&laquo;</a>
+        </li>
+
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{{view.query_except_page}}&page={{ page_obj.previous_page_number }}">{{ page_obj.previous_page_number }}</a>
+            </li>
+        {% endif %}
+
+        <li class="page-item">
+            <a class="page-link active" href="?{{view.query_except_page}}&page={{ page_obj.number }}">{{ page_obj.number }}</a>
+        </li>
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{{view.query_except_page}}&page={{ page_obj.next_page_number }}">{{ page_obj.next_page_number }}</a>
+            </li>
+        {% endif %}
+
+        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+            <a class="page-link" href="?{{view.query_except_page}}&page={{ page_obj.paginator.num_pages }}">&raquo;</a>
+        </li>
+    </ul>
+{% endif %}

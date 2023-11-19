@@ -1,0 +1,27 @@
+{% extends 'base_list.html' %}
+
+{% block extra_buttons %}
+    {% if request.user.position in view.model.create_allowed_to or request.user.position == "AD" %}
+        <div class="dropdown me-2">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown"
+                aria-expanded="false">
+                {% if view.filter_master %}{{ view.filter_master }}{% else %}Все мастера{% endif %}
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                <li><a class="dropdown-item {% if not view.filter_master %}active{% endif %}" href="?{% if view.show_finished %}show_finished=1{% endif %}">Все мастера</a></li>
+                <li><hr class="dropdown-divider"></li>
+                {% for master in view.master_list.all %}
+                    <li><a class="dropdown-item {% if view.filter_master.id == master.id %}active{% endif %}" href="?{% if view.show_finished %}show_finished=1&{% endif %}filter_master={{ master.id }}">{{ master }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    <a class="my-auto me-2 hide-link" href="?{% if view.filter_master %}filter_master={{ view.filter_master.id }}&{% endif %}{% if not view.show_finished %}show_finished=1{% endif %}">
+        <div class="form-check pe-none">
+            <input class="form-check-input" type="checkbox" value="" id="flexCheckChecked" {% if view.show_finished %}checked{% endif %}>
+            <label class="form-check-label" for="flexCheckChecked">
+                Показать завершенные
+            </label>
+        </div>
+    </a>
+{% endblock %}

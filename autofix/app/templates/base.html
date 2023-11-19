@@ -1,0 +1,74 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}" />
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+        integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+        crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+
+    <script src="{% static 'fontawesomefree/js/fontawesome.js' %}"></script>
+    <script src="{% static 'fontawesomefree/js/solid.js' %}"></script>
+
+    <script src="{% static 'js/base.js' %}" defer></script>
+
+    <title>{% block title %}АвтоРемонт{% endblock title %}</title>
+</head>
+
+<body>
+    <nav class="bg-body-tertiary navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a href="{% url 'home' %}" class="navbar-brand {% if not user.is_authenticated %}mx-auto{% endif %}">АвтоРемонт</a>
+
+            {% if user.is_authenticated %}
+                <button data-bs-toggle="collapse" data-bs-target="#basic-navbar-nav" aria-controls="basic-navbar-nav" type="button" aria-label="Toggle navigation" class="navbar-toggler collapsed">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse" id="basic-navbar-nav">
+                    <div class="me-auto navbar-nav">
+                        {% for key, value in nav_urls.items %}
+                            {% if value.items %}
+                                <div class="nav-item dropdown">
+                                    <a id="basic-nav-dropdown" aria-expanded="false" role="button" class="dropdown-toggle nav-link"
+                                        data-bs-toggle="dropdown" tabindex="0" href="#">{{ key }}</a>
+                                    <div aria-labelledby="basic-nav-dropdown" data-bs-popper="static" class="dropdown-menu">
+                                        {% for key2, value2 in value.items %}
+                                            <a href="{% url value2 %}" data-rr-ui-dropdown-item="" class="dropdown-item {% if request.resolver_match.url_name == value2 %}active{% endif %}">{{ key2 }}</a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <a href="{% url value %}" class="nav-link {% if request.resolver_match.url_name == value %}active{% endif %}">{{ key }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="justify-content-end navbar-collapse collapse">
+                    <span class="navbar-text pe-none">
+                        {{ user.get_position_display }}
+                        {{ user }}
+                    </span>
+                    <a href="{% url 'logout' %}" class="nav-link ms-4">Выход</a>
+                </div>
+            {% endif %}
+        </div>
+    </nav>
+    <div class="container my-3">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+</body>
+
+</html>

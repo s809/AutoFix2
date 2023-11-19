@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %} Главная {% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">АвтоРемонт</h1>
+    <p class="lead">Приложение для сотрудников компании</p>
+    <p class="lead">
+        <a class="btn btn-primary btn-lg" href="{% url 'login' %}" role="button">Войти в систему</a>
+    </p>
+</div>
+{% endblock %}

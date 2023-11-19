@@ -1,0 +1,9 @@
+<i class="fa-solid fa-{{ item.card_icon }} fa-2x ms-2 me-4"></i>
+<div>
+    <div class="card-title h5">{{ item.card_title }} {% if item.card_clickable == False %}(удалено){% endif %}</div>
+    <div class="card-subtitle h6">
+        {{ item.card_subtitle }}
+        <br>
+        {{ item.card_subtitle_extra }}
+    </div>
+</div>
