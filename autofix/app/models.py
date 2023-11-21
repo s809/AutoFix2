@@ -188,7 +188,7 @@ class WarehouseItem(SoftDeleteObject, models.Model):
         return reverse("item", kwargs={"pk": self.pk})
 
     name = models.CharField("Наименование", max_length=50)
-    manufacturer = models.CharField("Производитель", max_length=50)
+    type = models.CharField("Тип", max_length=50)
     price = models.DecimalField("Цена", max_digits=7, decimal_places=2, validators=[MinValueValidator(0)])
 
     create_allowed_to = [Employee.Position.WarehouseManager]
@@ -196,9 +196,9 @@ class WarehouseItem(SoftDeleteObject, models.Model):
 
     card_icon = "gears"
     def card_title(self):
-        return f"{self} ({self.price} руб.)"
+        return f"{self.name} ({self.price} руб.) ({self.get_count()} шт.)"
     def card_subtitle(self):
-        return self.manufacturer
+        return self.type
 
     def get_count(self, exclude = None):
         return (
@@ -214,7 +214,7 @@ class WarehouseItem(SoftDeleteObject, models.Model):
         )
 
     def __str__(self):
-        return self.name + (f" ({self.get_count()} шт.)" if not self.deleted_at else "")
+        return f"{self.type} {self.name}" + (f" ({self.get_count()} шт.)" if not self.deleted_at else "")
 
 
 class WarehouseRestock(SoftDeleteObject, models.Model):
@@ -258,7 +258,7 @@ class WarehouseUse(SoftDeleteObject, models.Model):
     def card_title(self):
         return self.item
     def card_subtitle(self):
-        return f"{self.amount} шт."
+        return f"Использовано: {self.amount} шт."
     def card_clickable(self):
         return self.item.deleted_at is None
 
