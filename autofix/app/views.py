@@ -86,8 +86,8 @@ class RepairOrderListView(PaginatedListView):
         if self.filter_master:
             filter &= Q(master_id = self.filter_master.id)
         if not self.show_finished:
-            filter &= Q(finishDate__isnull = True) | Q(isPaid = False)
-        return RepairOrder.objects.filter(filter).order_by("-startDate", "-id")
+            filter &= Q(finish_date__isnull = True) | Q(is_paid = False)
+        return RepairOrder.objects.filter(filter).order_by("-start_date", "-id")
 
 
 class ServiceListView(PaginatedListView):

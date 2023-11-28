@@ -49,11 +49,11 @@ class Employee(AbstractUser):
 
     card_icon = "user"
     def card_title(self):
-        return self.fullName()
+        return self.full_name()
     def card_subtitle(self):
         return self.get_position_display() + self.end_date_reason()
 
-    def fullName(self):
+    def full_name(self):
         return f"{self.last_name} {self.first_name} {self.patronymic}"
     def end_date_reason(self):
         if not self.end_date:
@@ -75,7 +75,7 @@ class Employee(AbstractUser):
         self.is_active = not self.end_date
 
     def __str__(self) -> str:
-        return self.fullName() + self.end_date_reason()
+        return self.full_name() + self.end_date_reason()
 
 class Service(SoftDeleteObject, models.Model):
     morphed_name = "услуги"
@@ -104,20 +104,20 @@ class RepairOrder(SoftDeleteObject, models.Model):
         return reverse("order", kwargs={"pk": self.pk})
 
     master = models.ForeignKey(Employee, on_delete=models.DO_NOTHING, limit_choices_to={"position": Employee.Position.Mechanic, "end_date__isnull": True}, verbose_name="Мастер")
-    clientName = models.CharField("Имя клиента", max_length=50)
-    clientPhoneNumber = PhoneNumberField("Номер телефона клиента", region="RU")
+    client_name = models.CharField("Имя клиента", max_length=50)
+    client_phone_number = PhoneNumberField("Номер телефона клиента", region="RU")
 
-    vehicleManufacturer = models.CharField("Производитель автомобиля", max_length=50)
-    vehicleModel = models.CharField("Модель автомобиля", max_length=50)
-    vehicleYear = models.IntegerField("Год выпуска автомобиля", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    vehicle_manufacturer = models.CharField("Производитель автомобиля", max_length=50)
+    vehicle_model = models.CharField("Модель автомобиля", max_length=50)
+    vehicle_year = models.IntegerField("Год выпуска автомобиля", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
 
-    startDate = models.DateField("Дата записи", default=timezone.now)
-    finishDate = models.DateField("Дата завершения", blank=True, null=True)
-    isCancelled = models.BooleanField("Отменена")
+    start_date = models.DateField("Дата записи", default=timezone.now)
+    finish_date = models.DateField("Дата завершения", blank=True, null=True)
+    is_cancelled = models.BooleanField("Отменена")
 
     comments = models.CharField("Комментарии", max_length=300, blank=True)
 
-    isPaid = models.BooleanField("Оплачено", default=False)
+    is_paid = models.BooleanField("Оплачено", default=False)
 
     create_allowed_to = [Employee.Position.ServiceManager]
     edit_allowed_to = [Employee.Position.ServiceManager,
@@ -125,13 +125,13 @@ class RepairOrder(SoftDeleteObject, models.Model):
                        Employee.Position.Cashier]
 
     def clean(self):
-        if self.isCancelled and not self.finishDate:
+        if self.is_cancelled and not self.finish_date:
             raise ValidationError({
-                "isCancelled": "Для отмены заявки на ремонт требуется дата завершения."
+                "is_cancelled": "Для отмены заявки на ремонт требуется дата завершения."
             })
-        if self.finishDate and self.finishDate < self.startDate:
+        if self.finish_date and self.finish_date < self.start_date:
             raise ValidationError({
-                "finishDate": "Дата завершения заявки на ремонт не может раньше даты начала.",
+                "finish_date": "Дата завершения заявки на ремонт не может раньше даты начала.",
             })
 
     def get_total_cost(self):
@@ -143,19 +143,19 @@ class RepairOrder(SoftDeleteObject, models.Model):
 
     card_icon = "car"
     def card_title(self):
-        result = f"{self.vehicleManufacturer} {self.vehicleModel} {self.vehicleYear} г."
-        if self.finishDate:
-            if self.isCancelled:
+        result = f"{self.vehicle_manufacturer} {self.vehicle_model} {self.vehicle_year} г."
+        if self.finish_date:
+            if self.is_cancelled:
                 result += " (Отменено)"
-            elif not self.isPaid:
+            elif not self.is_paid:
                 result += " (Не оплачено)"
             else:
-                result += f" (Завершено {self.finishDate.strftime(datetime_format)})"
+                result += f" (Завершено {self.finish_date.strftime(datetime_format)})"
         if self.comments:
             result += f" ({self.comments})"
         return result
     def card_subtitle(self):
-        return f"Клиент: {self.clientName}"
+        return f"Клиент: {self.client_name}"
     def card_subtitle_extra(self):
         return f"Мастер: {self.master}"
 
@@ -167,7 +167,7 @@ class WarehouseProvider(SoftDeleteObject, models.Model):
         return reverse("provider", kwargs={"pk": self.pk})
 
     name = models.CharField("Название", max_length=50)
-    contactInfo = models.CharField("Контактная информация", max_length=150)
+    contact_info = models.CharField("Контактная информация", max_length=150)
 
     create_allowed_to = [Employee.Position.WarehouseManager]
     edit_allowed_to = [Employee.Position.WarehouseManager]
@@ -176,10 +176,10 @@ class WarehouseProvider(SoftDeleteObject, models.Model):
     def card_title(self):
         return self.name
     def card_subtitle(self):
-        return self.contactInfo
+        return self.contact_info
 
     def __str__(self):
-        return f"{self.name} ({self.contactInfo})"
+        return f"{self.name} ({self.contact_info})"
 
 
 class WarehouseItem(SoftDeleteObject, models.Model):
@@ -277,23 +277,23 @@ class ServiceHistory(SoftDeleteObject, models.Model):
     repair_order = models.ForeignKey(RepairOrder, on_delete=models.CASCADE, verbose_name="Заявка на ремонт")
     service = models.ForeignKey(Service, on_delete=models.DO_NOTHING, verbose_name="Услуга")
 
-    finishDate = models.DateField("Дата выполнения", blank=True, null=True)
+    finish_date = models.DateField("Дата выполнения", blank=True, null=True)
     comments = models.CharField("Комментарии", max_length=300, blank=True)
 
     create_allowed_to = [Employee.Position.ServiceManager]
     edit_allowed_to = [Employee.Position.ServiceManager, Employee.Position.Mechanic]
 
     def clean(self):
-        if self.finishDate and self.finishDate < self.repair_order.startDate:
+        if self.finish_date and self.finish_date < self.repair_order.start_date:
             raise ValidationError({
-                "finishDate": f"Дата выполнения услуги не может раньше даты заявки: {self.repair_order.startDate.strftime(datetime_format)}.",
+                "finish_date": f"Дата выполнения услуги не может раньше даты заявки: {self.repair_order.start_date.strftime(datetime_format)}.",
             })
 
     card_icon = "wrench"
     def card_title(self):
         return self.service
     def card_subtitle(self):
-        result = f"Не выполнено" if self.finishDate == None else f"Выполнено {self.finishDate.strftime(datetime_format)}"
+        result = f"Не выполнено" if self.finish_date == None else f"Выполнено {self.finish_date.strftime(datetime_format)}"
         if self.comments:
             result += ". Комментарий: " + self.comments
         return result

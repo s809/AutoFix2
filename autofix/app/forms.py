@@ -72,7 +72,7 @@ class ServiceHistoryForm(BaseForm):
             'service',
             Fieldset(
                 'Выполнение',
-                Column('finishDate'),
+                Column('finish_date'),
                 'comments',
             ),
             button_column(self, kwargs)
@@ -156,11 +156,11 @@ class RepairOrderForm(ModelForm):
     class Meta:
         model = RepairOrder
         fields = ('master',
-            'clientName', 'clientPhoneNumber',
-            'vehicleManufacturer', 'vehicleModel', 'vehicleYear',
-            'startDate', 'finishDate', 'isCancelled',
+            'client_name', 'client_phone_number',
+            'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
+            'start_date', 'finish_date', 'is_cancelled',
             'comments',
-            'isPaid')
+            'is_paid')
 
     totalCost = DecimalField(
         label="Итого к оплате",
@@ -175,12 +175,12 @@ class RepairOrderForm(ModelForm):
         restrict_form_fields(self, kwargs, [
             [[Employee.Position.ServiceManager],
                 ['master',
-                'clientName', 'clientPhoneNumber',
-                'vehicleManufacturer', 'vehicleModel', 'vehicleYear',
-                'startDate', 'isCancelled']],
+                'client_name', 'client_phone_number',
+                'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
+                'start_date', 'is_cancelled']],
             [[Employee.Position.ServiceManager,
-              Employee.Position.Mechanic], ["finishDate"]],
-            [[Employee.Position.Cashier], ["isPaid"]]
+              Employee.Position.Mechanic], ["finish_date"]],
+            [[Employee.Position.Cashier], ["is_paid"]]
         ])
 
         self.helper = FormHelper()
@@ -188,24 +188,24 @@ class RepairOrderForm(ModelForm):
             'master',
             Fieldset(
                 'Клиент',
-                Column('clientName', 'clientPhoneNumber')
+                Column('client_name', 'client_phone_number')
             ),
             Fieldset(
                 'Автомобиль',
-                Column('vehicleManufacturer', 'vehicleModel', 'vehicleYear')
+                Column('vehicle_manufacturer', 'vehicle_model', 'vehicle_year')
             ),
             Fieldset(
                 'Заявка',
-                Column('startDate', 'finishDate' if kwargs["instance"] else None),
+                Column('start_date', 'finish_date' if kwargs["instance"] else None),
                 *([
-                    'isCancelled',
+                    'is_cancelled',
                     'comments'
                 ] if kwargs["instance"] else []),
             ),
             *([Fieldset(
                 'Оплата',
                 Column('totalCost'),
-                'isPaid'
+                'is_paid'
             )] if kwargs["instance"] else []),
             button_column(self, kwargs)
         )
