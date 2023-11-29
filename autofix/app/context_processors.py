@@ -18,7 +18,7 @@ def nav_urls(request):
         "Услуги": "services" if position_permissions["can_view_services"] else None
     }.items() if v is not None}
     warehouse_entries = {k:v for k, v in {
-        "Предметы": "items" if position_permissions["can_view_items"] else None,
+        "Расходники": "items" if position_permissions["can_view_items"] else None,
         "Поставщики": "providers" if position_permissions["can_view_providers"] else None
     }.items() if v is not None}
     extra_entries = {k:v for k, v in {
@@ -31,7 +31,12 @@ def nav_urls(request):
         **extra_entries
     }.items() if v is not None and v}
 
+    try:
+        first_visible_entry = next(iter({**repair_entries, **warehouse_entries, **extra_entries}.values()))
+    except:
+        first_visible_entry = "employees"
+
     return {
         "nav_urls": nav_urls,
-        "first_visible_entry": next(iter({**repair_entries, **warehouse_entries, **extra_entries}.values()))
+        "first_visible_entry": first_visible_entry
     }

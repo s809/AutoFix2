@@ -96,12 +96,12 @@ class ServiceListView(PaginatedListView):
     queryset = Service.objects.order_by("name")
 
 class WarehouseItemListView(PaginatedListView):
-    plural_name = "Инвентарь"
+    plural_name = "Расходники"
     model = WarehouseItem
     queryset = WarehouseItem.objects.order_by("name")
 
 class WarehouseProviderListView(PaginatedListView):
-    plural_name = "Поставщики предметов"
+    plural_name = "Поставщики расходников"
     model = WarehouseProvider
     queryset = WarehouseProvider.objects.order_by("name")
 
@@ -129,7 +129,7 @@ class ServiceHistoryListView(BaseListView):
     def get_queryset(self):
         return ServiceHistory.objects.filter(repair_order_id = self.kwargs["pk"])
 class WarehouseUseListView(BaseListView):
-    plural_name = "Использованные предметы"
+    plural_name = "Использованные расходники"
     subdir = "warehouse_uses/"
     model = WarehouseUse
     def get_queryset(self):

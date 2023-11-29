@@ -21,7 +21,7 @@ def validate_item_count(current, item, name, is_negative = False):
     # Check if the new total quantity is less than 0
     if new_total_quantity < 0:
         raise ValidationError(
-            {name: f"Недостаточно предметов. Требуется еще {-new_total_quantity} шт. предмета, имеется: {total_quantity} шт."}
+            {name: f"Недостаточно единиц расходника. Требуется еще {-new_total_quantity} шт., имеется: {total_quantity} шт."}
         )
 
 class Employee(AbstractUser):
@@ -97,6 +97,14 @@ class Service(SoftDeleteObject, models.Model):
     def __str__(self):
         return f"{self.name} ({self.price} руб.)"
 
+""" todo
+- поиск
++ галочка гарантийный (делает бесплатным)
++ дата ожидаемого конца ремонта
+- сортировка по ожидаемой дате конца + помечать до сегодня и просроченные
+- разграничение доступа
+- генерация квитанции
+"""
 
 class RepairOrder(SoftDeleteObject, models.Model):
     morphed_name = "заявки"
@@ -112,12 +120,16 @@ class RepairOrder(SoftDeleteObject, models.Model):
     vehicle_year = models.IntegerField("Год выпуска автомобиля", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
 
     start_date = models.DateField("Дата записи", default=timezone.now)
+    finish_until = models.DateField("Завершить до")
     finish_date = models.DateField("Дата завершения", blank=True, null=True)
     is_cancelled = models.BooleanField("Отменена")
 
-    comments = models.CharField("Комментарии", max_length=300, blank=True)
+    complaints = models.CharField("Комментарии клиента", max_length=2000)
+    diagnostic_results = models.CharField("Результаты диагностики", max_length=2000, blank=True)
+    comments = models.CharField("Комментарии сервиса", max_length=300, blank=True)
 
     is_paid = models.BooleanField("Оплачено", default=False)
+    is_warranty = models.BooleanField("Гарантийный ремонт", default=False)
 
     create_allowed_to = [Employee.Position.ServiceManager]
     edit_allowed_to = [Employee.Position.ServiceManager,
@@ -125,14 +137,21 @@ class RepairOrder(SoftDeleteObject, models.Model):
                        Employee.Position.Cashier]
 
     def clean(self):
+        errors = {}
+        if self.finish_until < self.start_date:
+            errors.update({
+                "finish_until": "Дата запланированного завершения заявки не может раньше даты начала."
+            })
         if self.is_cancelled and not self.finish_date:
-            raise ValidationError({
+            errors.update({
                 "is_cancelled": "Для отмены заявки на ремонт требуется дата завершения."
             })
         if self.finish_date and self.finish_date < self.start_date:
-            raise ValidationError({
+            errors.update({
                 "finish_date": "Дата завершения заявки на ремонт не может раньше даты начала.",
             })
+        if len(errors):
+            raise ValidationError(errors)
 
     def get_total_cost(self):
         return (
@@ -183,7 +202,7 @@ class WarehouseProvider(SoftDeleteObject, models.Model):
 
 
 class WarehouseItem(SoftDeleteObject, models.Model):
-    morphed_name = "предмета"
+    morphed_name = "расходника"
     def get_absolute_url(self):
         return reverse("item", kwargs={"pk": self.pk})
 
@@ -218,12 +237,12 @@ class WarehouseItem(SoftDeleteObject, models.Model):
 
 
 class WarehouseRestock(SoftDeleteObject, models.Model):
-    morphed_name = "пополнения предмета"
+    morphed_name = "пополнения расходника"
 
     def get_absolute_url(self):
         return reverse("restock", kwargs={"item": self.item.id, "pk": self.pk})
 
-    item = models.ForeignKey(WarehouseItem, on_delete=models.CASCADE, verbose_name="Предмет")
+    item = models.ForeignKey(WarehouseItem, on_delete=models.CASCADE, verbose_name="Расходник")
     provider = models.ForeignKey(WarehouseProvider, on_delete=models.DO_NOTHING, verbose_name="Поставщик")
     amount = models.IntegerField("Количество", validators=[MinValueValidator(1)])
 
@@ -242,13 +261,13 @@ class WarehouseRestock(SoftDeleteObject, models.Model):
         validate_item_count(self, self.item, "amount")
 
 class WarehouseUse(SoftDeleteObject, models.Model):
-    morphed_name = "использованного предмета"
+    morphed_name = "использованного расходника"
 
     def get_absolute_url(self):
         return reverse("warehouse_use", kwargs={"order": self.repair_order.id, "pk": self.pk})
 
     repair_order = models.ForeignKey(RepairOrder, on_delete=models.CASCADE, verbose_name="Заявка на ремонт")
-    item = models.ForeignKey(WarehouseItem, on_delete=models.DO_NOTHING, verbose_name="Предмет")
+    item = models.ForeignKey(WarehouseItem, on_delete=models.DO_NOTHING, verbose_name="Расходник")
     amount = models.IntegerField("Количество", validators=[MinValueValidator(1)])
 
     create_allowed_to = [Employee.Position.Mechanic]

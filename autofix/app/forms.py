@@ -123,7 +123,7 @@ class BaseEmployeeForm():
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
-            Column('first_name', 'last_name', 'patronymic'),
+            Column('last_name', 'first_name', 'patronymic'),
             'passport_info',
             'position',
             Column('date_joined', *(['end_date', 'end_reason'] if kwargs["instance"] else [])),
@@ -158,28 +158,40 @@ class RepairOrderForm(ModelForm):
         fields = ('master',
             'client_name', 'client_phone_number',
             'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
-            'start_date', 'finish_date', 'is_cancelled',
+            'complaints', 'diagnostic_results',
+            'start_date', 'finish_until', 'finish_date', 'is_cancelled',
             'comments',
-            'is_paid')
+            'is_paid', 'is_warranty')
 
-    totalCost = DecimalField(
+    total_cost = DecimalField(
         label="Итого к оплате",
         required=False,
         widget=NumberInput(attrs={"readonly": "", "step": "0.01"}))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **(kwargs | {"initial": {
-            "totalCost": '{0:.2f}'.format(kwargs["instance"].get_total_cost() if kwargs["instance"] else 0)
+            "total_cost": '{0:.2f}'.format(kwargs["instance"].get_total_cost() if kwargs["instance"] else 0)
         }}))
+        self.fields['complaints'].widget = \
+            self.fields['diagnostic_results'].widget = \
+            self.fields['comments'].widget = \
+                forms.Textarea()
+        self.fields['complaints'].widget.attrs = \
+            self.fields['diagnostic_results'].widget.attrs = \
+            self.fields['comments'].widget.attrs = \
+                {'rows': 2}
 
         restrict_form_fields(self, kwargs, [
             [[Employee.Position.ServiceManager],
                 ['master',
                 'client_name', 'client_phone_number',
                 'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
-                'start_date', 'is_cancelled']],
+                'complaints',
+                'start_date', 'finish_until', 'is_cancelled',
+                'is_warranty']],
             [[Employee.Position.ServiceManager,
               Employee.Position.Mechanic], ["finish_date"]],
+            [[Employee.Position.Mechanic], ["diagnostic_results"]],
             [[Employee.Position.Cashier], ["is_paid"]]
         ])
 
@@ -196,15 +208,19 @@ class RepairOrderForm(ModelForm):
             ),
             Fieldset(
                 'Заявка',
-                Column('start_date', 'finish_date' if kwargs["instance"] else None),
-                *([
-                    'is_cancelled',
-                    'comments'
-                ] if kwargs["instance"] else []),
+                Column('start_date', 'finish_until', 'finish_date' if kwargs["instance"] else None),
+                'is_cancelled' if kwargs["instance"] else None,
+                'complaints',
+                'is_warranty'
             ),
+            Fieldset(
+                'Сервис',
+                "diagnostic_results",
+                'comments'
+            ) if kwargs["instance"] else None,
             *([Fieldset(
                 'Оплата',
-                Column('totalCost'),
+                Column('total_cost'),
                 'is_paid'
             )] if kwargs["instance"] else []),
             button_column(self, kwargs)
