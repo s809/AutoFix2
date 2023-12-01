@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'softdelete',
     'phonenumber_field',
     'fontawesomefree',
+    'query_parameters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

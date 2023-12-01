@@ -2,6 +2,14 @@
 <div>
     <div class="card-title h5">{{ item.card_title }} {% if item.card_clickable == False %}(удалено){% endif %}</div>
     <div class="card-subtitle h6">
+        {% if item.card_tags %}
+            {% for text, color in item.card_tags.items %}
+                {% if text is not None %}
+                    <span class="text-{{ color }}">{{ text }}</span>{% if not forloop.last %},{% endif %}
+                {% endif %}
+            {% endfor %}
+            <br>
+        {% endif %}
         {{ item.card_subtitle }}
         <br>
         {{ item.card_subtitle_extra }}

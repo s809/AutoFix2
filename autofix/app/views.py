@@ -1,5 +1,6 @@
 from typing import Any
-from django.http import HttpRequest, HttpResponse
+from django.db.models.query import QuerySet
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.views.generic import *
 from django.views.generic.edit import DeletionMixin
@@ -21,11 +22,14 @@ class PaginatedListView(BaseListView):
     paginate_by = 20
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        query_except_page = request.GET.copy()
-        if query_except_page.get("page"):
-            query_except_page.pop("page")
-        self.query_except_page = query_except_page.urlencode()
+        self.search = request.GET.get("search", None)
         return super().get(request, *args, **kwargs)
+
+    def get_queryset(self) -> QuerySet[Any]:
+        queryset = super().get_queryset()
+        if self.search:
+            queryset = queryset.filter(self.model.search(self.search))
+        return queryset
 
 class BaseCreateView(LoginRequiredMixin, CreateView):
     template_name = "create.html"
@@ -60,7 +64,8 @@ class BaseUpdateView(LoginRequiredMixin, UpdateView, DeletionMixin):
 
     def get(self, request, *args, **kwargs):
         if request.GET.get("delete") is not None:
-            return self.delete(request, *args, **kwargs)
+            self.delete(request, *args, **kwargs)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', self.get_success_url()))
 
         context = self.get_context_data(request, *args, **kwargs)
         return self.render_to_response(context)
@@ -87,7 +92,7 @@ class RepairOrderListView(PaginatedListView):
             filter &= Q(master_id = self.filter_master.id)
         if not self.show_finished:
             filter &= Q(finish_date__isnull = True) | Q(is_paid = False)
-        return RepairOrder.objects.filter(filter).order_by("-start_date", "-id")
+        return super().get_queryset().filter(filter).order_by("finish_until", "id")
 
 
 class ServiceListView(PaginatedListView):
@@ -119,7 +124,7 @@ class EmployeeListView(PaginatedListView):
         kwargs = {"end_date__isnull": True}
         if self.show_removed:
             kwargs.pop("end_date__isnull")
-        return Employee.objects.filter(**kwargs).order_by("last_name", "first_name", "patronymic")
+        return super().get_queryset().filter(**kwargs).order_by("last_name", "first_name", "patronymic")
 
 
 class ServiceHistoryListView(BaseListView):

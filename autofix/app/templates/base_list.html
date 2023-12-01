@@ -1,9 +1,24 @@
+{% load query_parameters %}
+
 <h2 class="{% include "header_class.html" %}">{{ view.plural_name }}</h2>
 <div class="d-flex">
     {% if not view.model.create_allowed_to or request.user.position in view.model.create_allowed_to or request.user.position == "AD" %}
-        <a class="btn btn-secondary me-2" href="{{request.path}}{% if view.subdir %}{{view.subdir}}{% endif %}create/">Создать</a>
+        <a class="btn btn-secondary me-2" href="{% if view.subdir %}{{view.subdir}}{% endif %}create/">Создать</a>
     {% endif %}
     {% block extra_buttons %}{% endblock %}
+    {% if view.paginate_by %}
+        <form class="d-flex ms-auto" action="?" method="get">
+            {% for key, value in request.GET.items %}
+                {% if key != "search" %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endif %}
+            {% endfor %}
+            <input class="form-control me-2" name="search" type="search" placeholder="Поиск" value="{{ request.GET.search }}">
+            <button class="btn btn-outline-success" type="submit">
+                <i class="fa-solid fa-search"></i>
+            </button>
+        </form>
+    {% endif %}
 </div>
 
 <div class="vstack mt-2">
@@ -34,34 +49,40 @@
             </div>
         </div>
     {% empty %}
-        <p class="m-2">В этом списке нет элементов.</p>
+        <p class="m-2">
+            {% if request.GET.search %}
+                Ничего не найдено.
+            {% else %}
+                В этом списке нет элементов.
+            {% endif %}
+        </p>
     {% endfor %}
 </div>
 
 {% if page_obj and page_obj.paginator.num_pages > 1 %}
     <ul class="pagination justify-content-center my-3">
         <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-            <a class="page-link" href="?{{view.query_except_page}}&page=1" tabindex="-1">&laquo;</a>
+            <a class="page-link" href="?{% del_query_parameters page %}" tabindex="-1">&laquo;</a>
         </li>
 
         {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?{{view.query_except_page}}&page={{ page_obj.previous_page_number }}">{{ page_obj.previous_page_number }}</a>
+                <a class="page-link" href="?{% set_query_parameters page=page_obj.previous_page_number %}">{{ page_obj.previous_page_number }}</a>
             </li>
         {% endif %}
 
         <li class="page-item">
-            <a class="page-link active" href="?{{view.query_except_page}}&page={{ page_obj.number }}">{{ page_obj.number }}</a>
+            <a class="page-link active" href="?{% set_query_parameters page=page_obj.number %}">{{ page_obj.number }}</a>
         </li>
 
         {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?{{view.query_except_page}}&page={{ page_obj.next_page_number }}">{{ page_obj.next_page_number }}</a>
+                <a class="page-link" href="?{% set_query_parameters page=page_obj.next_page_number %}">{{ page_obj.next_page_number }}</a>
             </li>
         {% endif %}
 
         <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-            <a class="page-link" href="?{{view.query_except_page}}&page={{ page_obj.paginator.num_pages }}">&raquo;</a>
+            <a class="page-link" href="?{% set_query_parameters page=page_obj.paginator.num_pages %}">&raquo;</a>
         </li>
     </ul>
 {% endif %}

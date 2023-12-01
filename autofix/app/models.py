@@ -1,5 +1,5 @@
-from django.db import models
-from django.db.models import Sum
+from django.db import connection, models
+from django.db.models import Sum, Q
 from django.contrib.auth.models import *
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.forms import ValidationError
@@ -24,7 +24,41 @@ def validate_item_count(current, item, name, is_negative = False):
             {name: f"Недостаточно единиц расходника. Требуется еще {-new_total_quantity} шт., имеется: {total_quantity} шт."}
         )
 
-class Employee(AbstractUser):
+class FullTextSearchMixin():
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.save_search()
+
+    def save_search(self):
+        fields = [[name, value] for [name, value] in self.__dict__.items() if isinstance(value, str)]
+        self.delete_search()
+        with connection.cursor() as cursor:
+            cursor.execute(f"""
+                INSERT INTO app_{self.__class__.__name__.lower()}_search (id, {', '.join([field[0] for field in fields])})
+                VALUES (%s {", %s" * len(fields)});
+            """, [self.id, *[field[1] for field in fields]])
+
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+        self.delete_search()
+
+    def delete_search(self):
+        with connection.cursor() as cursor:
+            cursor.execute(f"""
+                DELETE FROM app_{self.__class__.__name__.lower()}_search WHERE id = %s;
+            """, [self.id])
+
+    @classmethod
+    def search(cls, search):
+        with connection.cursor() as cursor:
+            cursor.execute(f"""
+                SELECT id FROM app_{cls.__name__.lower()}_search (%s);
+            """, [search])
+            results = cursor.fetchall()
+        return Q(id__in=[result[0] for result in results])
+
+
+class Employee(FullTextSearchMixin, AbstractUser):
     morphed_name = "сотрудника"
     def get_absolute_url(self):
         return reverse("employee", kwargs={"pk": self.pk})
@@ -50,18 +84,22 @@ class Employee(AbstractUser):
     card_icon = "user"
     def card_title(self):
         return self.full_name()
+    def card_tags(self):
+        if not self.end_date:
+            return None
+        return { self.end_date_reason(): "warning" if self.end_reason else "secondary" }
     def card_subtitle(self):
-        return self.get_position_display() + self.end_date_reason()
+        return self.get_position_display()
 
     def full_name(self):
         return f"{self.last_name} {self.first_name} {self.patronymic}"
-    def end_date_reason(self):
+    def end_date_reason(self, parens = False):
         if not self.end_date:
             return ""
-        result = "уволен " + self.end_date.strftime(datetime_format)
+        result = "Уволен " + self.end_date.strftime(datetime_format)
         if self.end_reason:
             result += ". Причина: " + self.end_reason
-        return f" ({result})"
+        return f" ({result})" if parens else result
 
     def clean(self):
         if self.end_reason and not self.end_date:
@@ -75,9 +113,10 @@ class Employee(AbstractUser):
         self.is_active = not self.end_date
 
     def __str__(self) -> str:
-        return self.full_name() + self.end_date_reason()
+        return self.full_name() + self.end_date_reason(True)
 
-class Service(SoftDeleteObject, models.Model):
+
+class Service(FullTextSearchMixin, SoftDeleteObject, models.Model):
     morphed_name = "услуги"
     def get_absolute_url(self):
         return reverse("service", kwargs={"pk": self.pk})
@@ -101,12 +140,12 @@ class Service(SoftDeleteObject, models.Model):
 - поиск
 + галочка гарантийный (делает бесплатным)
 + дата ожидаемого конца ремонта
-- сортировка по ожидаемой дате конца + помечать до сегодня и просроченные
++ сортировка по ожидаемой дате конца + помечать до сегодня и просроченные
 - разграничение доступа
 - генерация квитанции
 """
 
-class RepairOrder(SoftDeleteObject, models.Model):
+class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
     morphed_name = "заявки"
     def get_absolute_url(self):
         return reverse("order", kwargs={"pk": self.pk})
@@ -138,6 +177,8 @@ class RepairOrder(SoftDeleteObject, models.Model):
 
     def clean(self):
         errors = {}
+        if self.is_warranty:
+            self.is_paid = bool(self.finish_date and not self.is_cancelled)
         if self.finish_until < self.start_date:
             errors.update({
                 "finish_until": "Дата запланированного завершения заявки не может раньше даты начала."
@@ -163,15 +204,30 @@ class RepairOrder(SoftDeleteObject, models.Model):
     card_icon = "car"
     def card_title(self):
         result = f"{self.vehicle_manufacturer} {self.vehicle_model} {self.vehicle_year} г."
-        if self.finish_date:
-            if self.is_cancelled:
-                result += " (Отменено)"
-            elif not self.is_paid:
-                result += " (Не оплачено)"
-            else:
-                result += f" (Завершено {self.finish_date.strftime(datetime_format)})"
         if self.comments:
             result += f" ({self.comments})"
+        return result
+    def card_tags(self):
+        result = {}
+        if self.finish_date:
+            if self.is_cancelled:
+                result.update({ "Отменен": "secondary" })
+            else:
+                result.update({ f"Завершен {self.finish_date.strftime(datetime_format)}": "secondary" })
+                if self.finish_until < self.finish_date:
+                    result.update({ f"Просрочен": "danger" })
+                if not self.is_paid:
+                    result.update({ "Не оплачен": "primary" })
+                elif self.is_warranty:
+                    result.update({ "Гарантийный": "primary" })
+        else:
+            result.update({
+                f"Завершить до: {self.finish_until.strftime(datetime_format)}":
+                    "secondary" if self.finish_until > timezone.now().date()
+                    else "warning" if self.finish_until == timezone.now().date()
+                    else "danger"
+            })
+
         return result
     def card_subtitle(self):
         return f"Клиент: {self.client_name}"
@@ -180,7 +236,8 @@ class RepairOrder(SoftDeleteObject, models.Model):
 
 # Warehouse
 
-class WarehouseProvider(SoftDeleteObject, models.Model):
+
+class WarehouseProvider(FullTextSearchMixin, SoftDeleteObject, models.Model):
     morphed_name = "поставщика"
     def get_absolute_url(self):
         return reverse("provider", kwargs={"pk": self.pk})
@@ -201,7 +258,7 @@ class WarehouseProvider(SoftDeleteObject, models.Model):
         return f"{self.name} ({self.contact_info})"
 
 
-class WarehouseItem(SoftDeleteObject, models.Model):
+class WarehouseItem(FullTextSearchMixin, SoftDeleteObject, models.Model):
     morphed_name = "расходника"
     def get_absolute_url(self):
         return reverse("item", kwargs={"pk": self.pk})
@@ -215,7 +272,9 @@ class WarehouseItem(SoftDeleteObject, models.Model):
 
     card_icon = "gears"
     def card_title(self):
-        return f"{self.name} ({self.price} руб.) ({self.get_count()} шт.)"
+        return f"{self.name} ({self.price} руб.)"
+    def card_tags(self):
+        return {f"{self.get_count()} шт.": "secondary"}
     def card_subtitle(self):
         return self.type
 

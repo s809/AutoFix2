@@ -170,7 +170,10 @@ class RepairOrderForm(ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **(kwargs | {"initial": {
-            "total_cost": '{0:.2f}'.format(kwargs["instance"].get_total_cost() if kwargs["instance"] else 0)
+            "total_cost": '{0:.2f}'.format(kwargs["instance"].get_total_cost() if kwargs["instance"] else 0),
+            **({
+                "is_paid": False
+            } if kwargs["instance"] and kwargs["instance"].is_warranty else {})
         }}))
         self.fields['complaints'].widget = \
             self.fields['diagnostic_results'].widget = \

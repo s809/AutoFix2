@@ -1,7 +1,8 @@
 {% extends 'base_list.html' %}
+{% load query_parameters %}
 
 {% block extra_buttons %}
-    <a class="my-auto me-2 hide-link" href="?{% if not view.show_removed %}show_removed=1{% endif %}">
+    <a class="my-auto me-2 hide-link" href="?{% if not view.show_removed %}{% set_query_parameters show_removed=1 %}{% else %}{% del_query_parameters show_removed %}{% endif %}">
         <div class="form-check pe-none">
             <input class="form-check-input" type="checkbox" value="" id="flexCheckChecked" {% if view.show_removed %}checked{% endif %}>
             <label class="form-check-label" for="flexCheckChecked">

@@ -6,3 +6,15 @@
 form .col-md > .mb-3:not(:first-child) {
     margin-left: 1em;
 }
+
+fieldset:has(#id_is_warranty:checked) ~ fieldset:has(#id_total_cost) {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .collapse.dont-collapse-sm {
+        display: block;
+        height: auto !important;
+        visibility: visible;
+    }
+}
