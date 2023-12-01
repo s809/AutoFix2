@@ -12,13 +12,7 @@ from django.db.models import Q
 from .forms import *
 
 
-class BaseListView(LoginRequiredMixin, ListView):
-    template_name = "list.html"
-    def post(self, request, *args, **kwargs):
-        self.kwargs.update(request.resolver_match.kwargs)
-        return self.get(request, *args, **kwargs)
-
-
+#region Permissions
 class CheckPermissionsMixin(LoginRequiredMixin):
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if not self.check_permissions(request):
@@ -45,6 +39,15 @@ class CheckViewPermissionsMixin(CheckPermissionsMixin):
             return self.parent.check_permissions(request)
         except:
             return request.user.position in ["AD", *self.model.edit_allowed_to]
+#endregion
+
+#region Base
+class BaseListView(LoginRequiredMixin, ListView):
+    template_name = "list.html"
+
+    def post(self, request, *args, **kwargs):
+        self.kwargs.update(request.resolver_match.kwargs)
+        return self.get(request, *args, **kwargs)
 
 class PaginatedListView(CheckViewPermissionsMixin, BaseListView):
     paginate_by = 20
@@ -67,7 +70,6 @@ class BaseCreateView(CheckCreatePermissionsMixin, LoginRequiredMixin, CreateView
         kwargs = super().get_form_kwargs()
         kwargs["initial"]["position"] = self.request.user.position
         return kwargs
-
 
 class BaseUpdateView(CheckViewPermissionsMixin, UpdateView, DeletionMixin):
     template_name = "update.html"
@@ -96,8 +98,10 @@ class BaseUpdateView(CheckViewPermissionsMixin, UpdateView, DeletionMixin):
             self.delete(request, *args, **kwargs)
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', self.get_success_url()))
         return super().get(request, *args, **kwargs)
+#endregion
 
 
+#region Root list
 class RepairOrderListView(PaginatedListView):
     plural_name = "Заявки на ремонт"
     model = RepairOrder
@@ -120,7 +124,6 @@ class RepairOrderListView(PaginatedListView):
         if not self.show_finished:
             filter &= Q(finish_date__isnull = True) | Q(is_paid = False)
         return super().get_queryset().filter(filter).order_by("finish_until", "id")
-
 
 class ServiceListView(PaginatedListView):
     plural_name = "Услуги"
@@ -152,8 +155,9 @@ class EmployeeListView(PaginatedListView):
         if self.show_removed:
             kwargs.pop("end_date__isnull")
         return super().get_queryset().filter(**kwargs).order_by("last_name", "first_name", "patronymic")
+#endregion
 
-
+#region Nested list
 class ServiceHistoryListView(BaseListView):
     plural_name = "Выполненные услуги"
     subdir = "history/"
@@ -172,8 +176,10 @@ class WarehouseRestockListView(BaseListView):
     model = WarehouseRestock
     def get_queryset(self):
         return WarehouseRestock.objects.filter(item_id = self.kwargs["pk"])
+#endregion
 
 
+#region Root base
 class RepairOrderView:
     model = RepairOrder
     form_class = RepairOrderForm
@@ -196,7 +202,9 @@ class WarehouseProviderView:
 class EmployeeView(LoginRequiredMixin):
     model = Employee
     success_url = ".."
+#endregion
 
+#region Root create
 class RepairOrderCreateView(RepairOrderView, BaseCreateView):
     pass
 class ServiceCreateView(ServiceView, BaseCreateView):
@@ -208,7 +216,9 @@ class WarehouseProviderCreateView(WarehouseProviderView, BaseCreateView):
 class EmployeeCreateView(CheckCreatePermissionsMixin, EmployeeView, CreateView):
     form_class = EmployeeCreationForm
     template_name = "create.html"
+#endregion
 
+#region Root update
 class RepairOrderUpdateView(RepairOrderView, BaseUpdateView):
     def check_permissions(self, request):
         can_access = request.user.id == self.get_object().master_id if request.user.position == Employee.Position.Mechanic \
@@ -223,8 +233,10 @@ class WarehouseProviderUpdateView(WarehouseProviderView, BaseUpdateView):
 class EmployeeUpdateView(CheckViewPermissionsMixin, EmployeeView, UpdateView):
     form_class = EmployeeChangeForm
     template_name = "update.html"
+#endregion
 
 
+#region Nested base
 class ServiceHistoryView:
     model = ServiceHistory
     parent = RepairOrder
@@ -249,28 +261,34 @@ class WarehouseRestockView:
         kwargs = super().get_form_kwargs()
         kwargs["initial"].update({"item": self.kwargs['item']})
         return kwargs
+#endregion
 
+#region Nested create
 class ServiceHistoryCreateView(ServiceHistoryView, BaseCreateView):
     pass
 class WarehouseUseCreateView(WarehouseUseView, BaseCreateView):
     pass
 class WarehouseRestockCreateView(WarehouseRestockView, BaseCreateView):
     pass
+#endregion
 
+#region Nested update
 class ServiceHistoryUpdateView(ServiceHistoryView, BaseUpdateView):
     pass
 class WarehouseUseUpdateView(WarehouseUseView, BaseUpdateView):
     pass
 class WarehouseRestockUpdateView(WarehouseRestockView, BaseUpdateView):
     pass
+#endregion
 
 
+#region Independent views
 def RedirectUpView(request, *args, **kwargs):
     return redirect('..')
-
 
 def HomePageView(request):
     if request.user.is_authenticated:
         return redirect(nav_urls(request)["first_visible_entry"])
     else:
         return redirect('login')
+#endregion
