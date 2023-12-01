@@ -18,7 +18,35 @@ class BaseListView(LoginRequiredMixin, ListView):
         self.kwargs.update(request.resolver_match.kwargs)
         return self.get(request, *args, **kwargs)
 
-class PaginatedListView(BaseListView):
+
+class CheckPermissionsMixin(LoginRequiredMixin):
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not self.check_permissions(request):
+            return redirect("..")
+        return super().get(self, request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if not self.check_permissions(request):
+            return redirect("..")
+        return super().post(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        if not self.check_permissions(request):
+            return redirect("..")
+        return super().delete(request, *args, **kwargs)
+
+class CheckCreatePermissionsMixin(CheckPermissionsMixin):
+    def check_permissions(self, request):
+        return request.user.position in ["AD", *self.model.create_allowed_to]
+
+class CheckViewPermissionsMixin(CheckPermissionsMixin):
+    def check_permissions(self, request):
+        try:
+            return self.parent.check_permissions(request)
+        except:
+            return request.user.position in ["AD", *self.model.edit_allowed_to]
+
+class PaginatedListView(CheckViewPermissionsMixin, BaseListView):
     paginate_by = 20
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
@@ -31,7 +59,7 @@ class PaginatedListView(BaseListView):
             queryset = queryset.filter(self.model.search(self.search))
         return queryset
 
-class BaseCreateView(LoginRequiredMixin, CreateView):
+class BaseCreateView(CheckCreatePermissionsMixin, LoginRequiredMixin, CreateView):
     template_name = "create.html"
     success_url = ".."
 
@@ -40,7 +68,8 @@ class BaseCreateView(LoginRequiredMixin, CreateView):
         kwargs["initial"]["position"] = self.request.user.position
         return kwargs
 
-class BaseUpdateView(LoginRequiredMixin, UpdateView, DeletionMixin):
+
+class BaseUpdateView(CheckViewPermissionsMixin, UpdateView, DeletionMixin):
     template_name = "update.html"
     success_url = ".."
     extra_views = []
@@ -57,7 +86,7 @@ class BaseUpdateView(LoginRequiredMixin, UpdateView, DeletionMixin):
 
         for extra_view in self.extra_views:
             clsview = extra_view.as_view()
-            view = clsview(self.request, *args, **kwargs)
+            view = clsview(self.request, *args, **(kwargs | { "pk": self.object.id }))
             context["extra_contexts"].append(view.context_data)
 
         return context
@@ -66,9 +95,7 @@ class BaseUpdateView(LoginRequiredMixin, UpdateView, DeletionMixin):
         if request.GET.get("delete") is not None:
             self.delete(request, *args, **kwargs)
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', self.get_success_url()))
-
-        context = self.get_context_data(request, *args, **kwargs)
-        return self.render_to_response(context)
+        return super().get(request, *args, **kwargs)
 
 
 class RepairOrderListView(PaginatedListView):
@@ -178,27 +205,29 @@ class WarehouseItemCreateView(WarehouseItemView, BaseCreateView):
     pass
 class WarehouseProviderCreateView(WarehouseProviderView, BaseCreateView):
     pass
-class EmployeeCreateView(EmployeeView, CreateView):
+class EmployeeCreateView(CheckCreatePermissionsMixin, EmployeeView, CreateView):
     form_class = EmployeeCreationForm
     template_name = "create.html"
-    pass
 
 class RepairOrderUpdateView(RepairOrderView, BaseUpdateView):
-    pass
+    def check_permissions(self, request):
+        can_access = request.user.id == self.get_object().master_id if request.user.position == Employee.Position.Mechanic \
+            else True
+        return can_access and super().check_permissions(request)
 class ServiceUpdateView(ServiceView, BaseUpdateView):
     pass
 class WarehouseItemUpdateView(WarehouseItemView, BaseUpdateView):
     pass
 class WarehouseProviderUpdateView(WarehouseProviderView, BaseUpdateView):
     pass
-class EmployeeUpdateView(EmployeeView, UpdateView):
+class EmployeeUpdateView(CheckViewPermissionsMixin, EmployeeView, UpdateView):
     form_class = EmployeeChangeForm
     template_name = "update.html"
-    pass
 
 
 class ServiceHistoryView:
     model = ServiceHistory
+    parent = RepairOrder
     form_class = ServiceHistoryForm
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
@@ -206,6 +235,7 @@ class ServiceHistoryView:
         return kwargs
 class WarehouseUseView:
     model = WarehouseUse
+    parent = RepairOrder
     form_class = WarehouseUseForm
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
@@ -213,6 +243,7 @@ class WarehouseUseView:
         return kwargs
 class WarehouseRestockView:
     model = WarehouseRestock
+    parent = WarehouseItem
     form_class = WarehouseRestockForm
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()

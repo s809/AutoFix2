@@ -24,13 +24,13 @@ def validate_item_count(current, item, name, is_negative = False):
             {name: f"Недостаточно единиц расходника. Требуется еще {-new_total_quantity} шт., имеется: {total_quantity} шт."}
         )
 
-class FullTextSearchMixin():
+class FullTextSearchMixin:
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         self.save_search()
 
     def save_search(self):
-        fields = [[name, value] for [name, value] in self.__dict__.items() if isinstance(value, str)]
+        fields = [[name, value] for [name, value] in self.__dict__.items() if isinstance(value, str) and name != "backend"]
         self.delete_search()
         with connection.cursor() as cursor:
             cursor.execute(f"""
@@ -79,7 +79,7 @@ class Employee(FullTextSearchMixin, AbstractUser):
     end_reason = models.CharField("Причина увольнения", max_length=150, blank=True)
 
     create_allowed_to = []
-    edit_allowed_to = []
+    edit_allowed_to = Position.values
 
     card_icon = "user"
     def card_title(self):
@@ -137,11 +137,11 @@ class Service(FullTextSearchMixin, SoftDeleteObject, models.Model):
         return f"{self.name} ({self.price} руб.)"
 
 """ todo
-- поиск
++ поиск
 + галочка гарантийный (делает бесплатным)
 + дата ожидаемого конца ремонта
 + сортировка по ожидаемой дате конца + помечать до сегодня и просроченные
-- разграничение доступа
++ разграничение доступа
 - генерация квитанции
 """
 
