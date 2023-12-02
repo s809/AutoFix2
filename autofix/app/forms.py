@@ -1,12 +1,9 @@
 from typing import Any
-from django.core.files.base import File
-from django.db.models.base import Model
 from django.forms import *
 from django.contrib.auth.forms import *
-from django.forms.utils import ErrorList
 from .models import *
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout, Fieldset, Column, Submit, HTML, Field
+from crispy_forms.layout import Layout, Fieldset, Column, Submit, HTML
 
 
 class Column(Column):
@@ -16,6 +13,9 @@ class Column(Column):
 submit_button = Submit("submit", "Сохранить", css_class="btn-primary ml-2")
 delete_button = HTML("""
     <a class="btn btn-danger ms-2" href="?delete">Удалить</a>
+""")
+print_receipt_button = HTML("""
+    <a class="btn btn-secondary mt-2" href="receipt/" target="_blank">Печать квитанции</a>
 """)
 
 def button_column(form: ModelForm, kwargs: dict):
@@ -226,5 +226,6 @@ class RepairOrderForm(ModelForm):
                 Column('total_cost'),
                 'is_paid'
             )] if kwargs["instance"] else []),
-            button_column(self, kwargs)
+            button_column(self, kwargs),
+            print_receipt_button if kwargs["instance"] else None
         )

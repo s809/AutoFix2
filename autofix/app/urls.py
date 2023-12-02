@@ -9,6 +9,7 @@ urlpatterns = [
     path('repair/orders/', views.RepairOrderListView.as_view(), name='orders'),
     path('repair/orders/create/', views.RepairOrderCreateView.as_view(), name='order_create'),
     path('repair/orders/<int:pk>/', views.RepairOrderUpdateView.as_view(), name='order'),
+    path('repair/orders/<int:pk>/receipt/', views.RepairOrderReceiptView.as_view(), name='order_receipt'),
     path('repair/orders/<int:order>/history/', views.RedirectUpView),
     path('repair/orders/<int:order>/history/create/', views.ServiceHistoryCreateView.as_view(), name='service_history_create'),
     path('repair/orders/<int:order>/history/<int:pk>/', views.ServiceHistoryUpdateView.as_view(), name='service_history'),

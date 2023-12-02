@@ -1,0 +1,111 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="{% static 'css/receipt.css' %}" />
+    <script src="{% static 'js/receipt.js' %}" defer></script>
+
+    <title>Квитанция</title>
+</head>
+<body>
+    <div class="receipt-root">
+        <section class="receipt-header large-section">
+            <h2 class="brand">АвтоРемонт</h2>
+            <div class="small-text">
+                <p><strong>Телефон:</strong> +7 912 345-67-89</p>
+                <p><strong>E-mail:</strong> autorepair@example.com</p>
+                <p><strong>Адрес:</strong> г. Екатеринбург, ул. Пушкина, 123</p>
+            </div>
+        </section>
+
+        <h1>Квитанция</h1>
+
+        <section>
+            <h2>Клиент</h2>
+            <p><strong>Имя:</strong> {{ object.client_name }}</p>
+            <p><strong>Телефон:</strong> {{ object.client_phone_number }}</p>
+        </section>
+
+        <section>
+            <h2>Автомобиль</h2>
+            <p><strong>Производитель:</strong> {{ object.vehicle_manufacturer }}</p>
+            <p><strong>Модель:</strong> {{ object.vehicle_model }}</p>
+            <p><strong>Год выпуска:</strong> {{ object.vehicle_year }}</p>
+        </section>
+
+        <section>
+            <h2>Доп. информация</h2>
+            <p><strong>Комментарий клиента:</strong> {{ object.complaints }}</p>
+            <p><strong>Результаты диагностики:</strong> {{ object.diagnostic_results }}</p>
+        </section>
+
+        <section>
+            <h2>Ремонт</h2>
+            <p><strong>Дата приема:</strong> {{ object.start_date | date:"d.m.Y" }}</p>
+            {% if object.finish_date %}
+                {% if object.is_cancelled %}
+                    <p><strong>Отменен</strong> {{ object.is_cancelled }}</p>
+                {% else %}
+                    <p><strong>Дата завершения:</strong> {{ object.finish_date | date:"d.m.Y" }}</p>
+                {% endif %}
+            {% else %}
+                <p><strong>Срок завершения:</strong> до {{ object.finish_until | date:"d.m.Y" }}</p>
+            {% endif %}
+        </section>
+
+        <section class="service-history large-section">
+            <h2>Выполненные услуги</h2>
+            <table>
+                <thead>
+                    <th>Наименование</th>
+                    <th>Стоимость</th>
+                    <th>Дата выполнения</th>
+                    <th>Комментарии</th>
+                </thead>
+                <tbody>
+                    {% for item in object.servicehistory_set.all %}
+                        <td>{{ item.service.name }}</td>
+                        <td>{{ item.service.price }} руб.</td>
+                        <td>{{ item.finish_date | date:"d.m.Y" }}</td>
+                        <td class="service-history-comments">{{ item.comments }}</td>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section class="receipt-bottom large-section">
+            <div class="{% if object.is_cancelled %}placeholder{% endif %}">
+                <h2 class="visually-hidden">Оплата</h2>
+                {% if object.is_warranty %}
+                    <p><strong>Гарантийный ремонт</strong></p>
+                    <p><strong>ОПЛАТА НЕ ТРЕБУЕТСЯ</strong></p>
+                {% else %}
+                    <p><strong>Итого:</strong> {{ object.get_total_cost |floatformat:2 }} руб.</p>
+                    <p><strong>{% if object.is_paid %}ОПЛАЧЕНО{% else %}НЕ ОПЛАЧЕНО{% endif %}</strong></p>
+                {% endif %}
+            </div>
+            <div class="receipt-signatures">
+                <h2 class="visually-hidden">Подписи</h2>
+                <table class="receipt-signatures-table">
+                    <tr>
+                        <td class="field-name">ФИО менеджера сервиса: </td>
+                        <td class="underline"></td>
+                    </tr>
+                    <tr>
+                        <td class="field-name">Подпись менеджера сервиса:</td>
+                        <td class="underline"></td>
+                    </tr>
+                    <tr>
+                        <td class="field-name">Подпись клиента:</td>
+                        <td class="underline"></td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

@@ -187,6 +187,11 @@ class RepairOrderView:
         ServiceHistoryListView,
         WarehouseUseListView
     ]
+
+    def check_permissions(self, request):
+        can_access = request.user.id == self.get_object().master_id if request.user.position == Employee.Position.Mechanic \
+            else True
+        return can_access and super().check_permissions(request)
 class ServiceView:
     model = Service
     form_class = ServiceForm
@@ -220,10 +225,7 @@ class EmployeeCreateView(CheckCreatePermissionsMixin, EmployeeView, CreateView):
 
 #region Root update
 class RepairOrderUpdateView(RepairOrderView, BaseUpdateView):
-    def check_permissions(self, request):
-        can_access = request.user.id == self.get_object().master_id if request.user.position == Employee.Position.Mechanic \
-            else True
-        return can_access and super().check_permissions(request)
+    pass
 class ServiceUpdateView(ServiceView, BaseUpdateView):
     pass
 class WarehouseItemUpdateView(WarehouseItemView, BaseUpdateView):
@@ -233,6 +235,11 @@ class WarehouseProviderUpdateView(WarehouseProviderView, BaseUpdateView):
 class EmployeeUpdateView(CheckViewPermissionsMixin, EmployeeView, UpdateView):
     form_class = EmployeeChangeForm
     template_name = "update.html"
+#endregion
+
+#region Repair order receipt
+class RepairOrderReceiptView(RepairOrderView, DetailView):
+    template_name = "repair_order_receipt.html"
 #endregion
 
 
