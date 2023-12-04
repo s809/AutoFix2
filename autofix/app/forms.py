@@ -158,6 +158,7 @@ class RepairOrderForm(ModelForm):
         fields = ('master',
             'client_name', 'client_phone_number',
             'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
+            'vehicle_license_number', 'vehicle_vin', 'vehicle_mileage',
             'complaints', 'diagnostic_results',
             'start_date', 'finish_until', 'finish_date', 'is_cancelled',
             'comments',
@@ -189,6 +190,7 @@ class RepairOrderForm(ModelForm):
                 ['master',
                 'client_name', 'client_phone_number',
                 'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
+                'vehicle_license_number', 'vehicle_vin', 'vehicle_mileage',
                 'complaints',
                 'start_date', 'finish_until', 'is_cancelled',
                 'is_warranty']],
@@ -207,7 +209,8 @@ class RepairOrderForm(ModelForm):
             ),
             Fieldset(
                 'Автомобиль',
-                Column('vehicle_manufacturer', 'vehicle_model', 'vehicle_year')
+                Column('vehicle_manufacturer', 'vehicle_model', 'vehicle_year'),
+                Column('vehicle_license_number', 'vehicle_vin', 'vehicle_mileage',)
             ),
             Fieldset(
                 'Заявка',
@@ -227,5 +230,5 @@ class RepairOrderForm(ModelForm):
                 'is_paid'
             )] if kwargs["instance"] else []),
             button_column(self, kwargs),
-            print_receipt_button if kwargs["instance"] else None
+            print_receipt_button if kwargs["instance"] and kwargs["initial"]["position"] in [Employee.Position.Administrator, Employee.Position.ServiceManager] else None
         )

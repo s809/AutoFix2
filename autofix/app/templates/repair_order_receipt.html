@@ -19,10 +19,14 @@
                 <p><strong>Телефон:</strong> +7 912 345-67-89</p>
                 <p><strong>E-mail:</strong> autorepair@example.com</p>
                 <p><strong>Адрес:</strong> г. Екатеринбург, ул. Пушкина, 123</p>
+                <p><strong>График работы:</strong> Пн-Пт 10:00-19:00</p>
             </div>
         </section>
 
-        <h1>Квитанция</h1>
+        <section class="large-section center">
+            <h1 class="m-0">Квитанция</h1>
+            <p>Заявка №{{ object.id }}</p>
+        </section>
 
         <section>
             <h2>Клиент</h2>
@@ -35,12 +39,9 @@
             <p><strong>Производитель:</strong> {{ object.vehicle_manufacturer }}</p>
             <p><strong>Модель:</strong> {{ object.vehicle_model }}</p>
             <p><strong>Год выпуска:</strong> {{ object.vehicle_year }}</p>
-        </section>
-
-        <section>
-            <h2>Доп. информация</h2>
-            <p><strong>Комментарий клиента:</strong> {{ object.complaints }}</p>
-            <p><strong>Результаты диагностики:</strong> {{ object.diagnostic_results }}</p>
+            <p><strong>Гос. номер:</strong> {{ object.vehicle_license_number }}</p>
+            <p><strong>VIN:</strong> {{ object.vehicle_vin }}</p>
+            <p><strong>Пробег:</strong> {{ object.vehicle_mileage }}</p>
         </section>
 
         <section>
@@ -53,12 +54,26 @@
                     <p><strong>Дата завершения:</strong> {{ object.finish_date | date:"d.m.Y" }}</p>
                 {% endif %}
             {% else %}
-                <p><strong>Срок завершения:</strong> до {{ object.finish_until | date:"d.m.Y" }}</p>
+                <p><strong>Дата завершения (ориент.):</strong> {{ object.finish_until | date:"d.m.Y" }}</p>
             {% endif %}
         </section>
 
+        <section>
+            <h2>Доп. информация</h2>
+            <p><strong>Описание проблемы:</strong> {{ object.complaints }}</p>
+            <p><strong>Результаты диагностики:</strong> {{ object.diagnostic_results }}</p>
+        </section>
+
+        <section class="large-section">
+            <h2>Правила обслуживания</h2>
+            <ol>
+                <li>Клиент обязуется то и другое</li>
+                <li>Срок хранения автомобиля 30 дней потом утилизация</li>
+            </ol>
+        </section>
+
         <section class="service-history large-section">
-            <h2>Выполненные услуги</h2>
+            <h2>Услуги</h2>
             <table>
                 <thead>
                     <th>Наименование</th>
@@ -78,14 +93,15 @@
         </section>
 
         <section class="receipt-bottom large-section">
-            <div class="{% if object.is_cancelled %}placeholder{% endif %}">
+            <div>
                 <h2 class="visually-hidden">Оплата</h2>
                 {% if object.is_warranty %}
                     <p><strong>Гарантийный ремонт</strong></p>
-                    <p><strong>ОПЛАТА НЕ ТРЕБУЕТСЯ</strong></p>
                 {% else %}
                     <p><strong>Итого:</strong> {{ object.get_total_cost |floatformat:2 }} руб.</p>
-                    <p><strong>{% if object.is_paid %}ОПЛАЧЕНО{% else %}НЕ ОПЛАЧЕНО{% endif %}</strong></p>
+                    {% if object.finish_date and not object.is_cancelled %}
+                        <p><strong>{% if object.is_paid %}ОПЛАЧЕНО{% else %}НЕ ОПЛАЧЕНО{% endif %}</strong></p>
+                    {% endif %}
                 {% endif %}
             </div>
             <div class="receipt-signatures">
@@ -98,6 +114,12 @@
                     <tr>
                         <td class="field-name">Подпись менеджера сервиса:</td>
                         <td class="underline"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">
+                            <br>
+                            Клиент согласен со всем вышеперечисленным и претензий не имеет
+                        </td>
                     </tr>
                     <tr>
                         <td class="field-name">Подпись клиента:</td>

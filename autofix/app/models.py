@@ -1,7 +1,7 @@
 from django.db import connection, models
 from django.db.models import Sum, Q
 from django.contrib.auth.models import *
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, MinLengthValidator
 from django.forms import ValidationError
 from softdelete.models import SoftDeleteObject
 from phonenumber_field.modelfields import PhoneNumberField
@@ -136,14 +136,6 @@ class Service(FullTextSearchMixin, SoftDeleteObject, models.Model):
     def __str__(self):
         return f"{self.name} ({self.price} руб.)"
 
-""" todo
-+ поиск
-+ галочка гарантийный (делает бесплатным)
-+ дата ожидаемого конца ремонта
-+ сортировка по ожидаемой дате конца + помечать до сегодня и просроченные
-+ разграничение доступа
-- генерация квитанции
-"""
 
 class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
     morphed_name = "заявки"
@@ -157,13 +149,16 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
     vehicle_manufacturer = models.CharField("Производитель автомобиля", max_length=50)
     vehicle_model = models.CharField("Модель автомобиля", max_length=50)
     vehicle_year = models.IntegerField("Год выпуска автомобиля", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    vehicle_license_number = models.CharField("Гос. номер автомобиля", max_length=15)
+    vehicle_vin = models.CharField("VIN автомобиля", max_length=17, validators=[MinLengthValidator(17)])
+    vehicle_mileage = models.IntegerField("Пробег автомобиля, км", validators=[MinValueValidator(0)])
 
     start_date = models.DateField("Дата записи", default=timezone.now)
     finish_until = models.DateField("Завершить до")
     finish_date = models.DateField("Дата завершения", blank=True, null=True)
     is_cancelled = models.BooleanField("Отменена")
 
-    complaints = models.CharField("Комментарии клиента", max_length=2000)
+    complaints = models.CharField("Описание проблемы", max_length=2000)
     diagnostic_results = models.CharField("Результаты диагностики", max_length=2000, blank=True)
     comments = models.CharField("Комментарии сервиса", max_length=300, blank=True)
 
@@ -203,7 +198,7 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
 
     card_icon = "car"
     def card_title(self):
-        result = f"{self.vehicle_manufacturer} {self.vehicle_model} {self.vehicle_year} г."
+        result = f"№{self.id}: {self.vehicle_manufacturer} {self.vehicle_model} {self.vehicle_year} г."
         if self.comments:
             result += f" ({self.comments})"
         return result
