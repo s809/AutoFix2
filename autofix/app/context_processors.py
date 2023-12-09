@@ -8,6 +8,8 @@ def nav_urls(request):
     position_permissions = {k: user_position in [Employee.Position.Administrator, *v] for k, v in {
         "can_view_orders": RepairOrder.edit_allowed_to,
         "can_view_services": Service.edit_allowed_to,
+        "can_view_clients": Client.edit_allowed_to,
+        "can_view_vehicles": Vehicle.edit_allowed_to,
         "can_view_items": WarehouseItem.edit_allowed_to,
         "can_view_providers": WarehouseItem.edit_allowed_to,
         "can_view_employees": Employee.edit_allowed_to,
@@ -15,7 +17,9 @@ def nav_urls(request):
 
     repair_entries = {k:v for k, v in {
         "Заявки": "orders" if position_permissions["can_view_orders"] else None,
-        "Услуги": "services" if position_permissions["can_view_services"] else None
+        "Услуги": "services" if position_permissions["can_view_services"] else None,
+        "Клиенты": "clients" if position_permissions["can_view_clients"] else None,
+        "Автомобили": "vehicles" if position_permissions["can_view_vehicles"] else None,
     }.items() if v is not None}
     warehouse_entries = {k:v for k, v in {
         "Расходники": "items" if position_permissions["can_view_items"] else None,

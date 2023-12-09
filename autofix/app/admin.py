@@ -31,6 +31,14 @@ class EmployeeAdmin(UserAdmin):
 class ServiceAdmin(admin.ModelAdmin):
     list_display = list_display_fields(Service, ServiceHistory)
 
+@admin.register(Client)
+class ClientAdmin(admin.ModelAdmin):
+    list_display = list_display_fields(Client, RepairOrder)
+
+@admin.register(Vehicle)
+class VehicleAdmin(admin.ModelAdmin):
+    list_display = list_display_fields(Vehicle, RepairOrder)
+
 # Warehouse
 
 class WarehouseRestockAdminInline(admin.TabularInline):

@@ -30,17 +30,17 @@
 
         <section>
             <h2>Клиент</h2>
-            <p><strong>Имя:</strong> {{ object.client_name }}</p>
-            <p><strong>Телефон:</strong> {{ object.client_phone_number }}</p>
+            <p><strong>ФИО:</strong> {{ object.client.full_name }}</p>
+            <p><strong>Телефон:</strong> {{ object.client.phone_number }}</p>
         </section>
 
         <section>
             <h2>Автомобиль</h2>
-            <p><strong>Производитель:</strong> {{ object.vehicle_manufacturer }}</p>
-            <p><strong>Модель:</strong> {{ object.vehicle_model }}</p>
-            <p><strong>Год выпуска:</strong> {{ object.vehicle_year }}</p>
-            <p><strong>Гос. номер:</strong> {{ object.vehicle_license_number }}</p>
-            <p><strong>VIN:</strong> {{ object.vehicle_vin }}</p>
+            <p><strong>Производитель:</strong> {{ object.vehicle.manufacturer }}</p>
+            <p><strong>Модель:</strong> {{ object.vehicle.model }}</p>
+            <p><strong>Год выпуска:</strong> {{ object.vehicle.year }}</p>
+            <p><strong>Гос. номер:</strong> {{ object.vehicle.license_number }}</p>
+            <p><strong>VIN:</strong> {{ object.vehicle.vin }}</p>
             <p><strong>Пробег:</strong> {{ object.vehicle_mileage }}</p>
         </section>
 

@@ -21,6 +21,14 @@ urlpatterns = [
     path('repair/services/create/', views.ServiceCreateView.as_view(), name='service_create'),
     path('repair/services/<int:pk>/', views.ServiceUpdateView.as_view(), name='service'),
 
+    path('repair/clients/', views.ClientListView.as_view(), name='clients'),
+    path('repair/clients/create/', views.ClientCreateView.as_view(), name='client_create'),
+    path('repair/clients/<int:pk>/', views.ClientUpdateView.as_view(), name='client'),
+
+    path('repair/vehicles/', views.VehicleListView.as_view(), name='vehicles'),
+    path('repair/vehicles/create/', views.VehicleCreateView.as_view(), name='vehicle_create'),
+    path('repair/vehicles/<int:pk>/', views.VehicleUpdateView.as_view(), name='vehicle'),
+
     path('warehouse/items/', views.WarehouseItemListView.as_view(), name='items'),
     path('warehouse/items/create/', views.WarehouseItemCreateView.as_view(), name='item_create'),
     path('warehouse/items/<int:pk>/', views.WarehouseItemUpdateView.as_view(), name='item'),

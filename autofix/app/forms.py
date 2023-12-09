@@ -55,6 +55,27 @@ class ServiceForm(BaseForm):
         model = Service
         exclude = []
 
+class ClientForm(BaseForm):
+    class Meta:
+        model = Client
+        exclude = []
+
+
+class VehicleForm(BaseForm):
+    class Meta:
+        model = Vehicle
+        exclude = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Column('manufacturer', 'model', 'year'),
+            Column('license_number', 'vin'),
+            button_column(self, kwargs)
+        )
+
 class ServiceHistoryForm(BaseForm):
     class Meta:
         model = ServiceHistory
@@ -156,9 +177,7 @@ class RepairOrderForm(ModelForm):
     class Meta:
         model = RepairOrder
         fields = ('master',
-            'client_name', 'client_phone_number',
-            'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
-            'vehicle_license_number', 'vehicle_vin', 'vehicle_mileage',
+            'client', 'vehicle', 'vehicle_mileage',
             'complaints', 'diagnostic_results',
             'start_date', 'finish_until', 'finish_date', 'is_cancelled',
             'comments',
@@ -188,9 +207,7 @@ class RepairOrderForm(ModelForm):
         restrict_form_fields(self, kwargs, [
             [[Employee.Position.ServiceManager],
                 ['master',
-                'client_name', 'client_phone_number',
-                'vehicle_manufacturer', 'vehicle_model', 'vehicle_year',
-                'vehicle_license_number', 'vehicle_vin', 'vehicle_mileage',
+                'client', 'vehicle', 'vehicle_mileage',
                 'complaints',
                 'start_date', 'finish_until', 'is_cancelled',
                 'is_warranty']],
@@ -205,12 +222,8 @@ class RepairOrderForm(ModelForm):
             'master',
             Fieldset(
                 'Клиент',
-                Column('client_name', 'client_phone_number')
-            ),
-            Fieldset(
-                'Автомобиль',
-                Column('vehicle_manufacturer', 'vehicle_model', 'vehicle_year'),
-                Column('vehicle_license_number', 'vehicle_vin', 'vehicle_mileage',)
+                Column('client'),
+                Column('vehicle', 'vehicle_mileage')
             ),
             Fieldset(
                 'Заявка',

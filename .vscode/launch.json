@@ -14,6 +14,18 @@
             ],
             "django": true,
             "justMyCode": false
+        },
+        {
+            "name": "Python: Django - Tests",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/autofix/manage.py",
+            "args": [
+                "test",
+                "app"
+            ],
+            "django": true,
+            "justMyCode": false
         }
     ]
 }

@@ -96,6 +96,8 @@ class BaseUpdateView(CheckViewPermissionsMixin, UpdateView, DeletionMixin):
     def get(self, request, *args, **kwargs):
         if request.GET.get("delete") is not None:
             self.delete(request, *args, **kwargs)
+            if request.path in request.META.get('HTTP_REFERER'):
+                return HttpResponseRedirect(request.path + "../")
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', self.get_success_url()))
         return super().get(request, *args, **kwargs)
 #endregion
@@ -129,6 +131,16 @@ class ServiceListView(PaginatedListView):
     plural_name = "Услуги"
     model = Service
     queryset = Service.objects.order_by("name")
+
+class ClientListView(PaginatedListView):
+    plural_name = "Клиенты"
+    model = Client
+    queryset = Client.objects.order_by("full_name", "phone_number")
+
+class VehicleListView(PaginatedListView):
+    plural_name = "Автомобили"
+    model = Vehicle
+    queryset = Vehicle.objects.order_by("manufacturer", "model", "year")
 
 class WarehouseItemListView(PaginatedListView):
     plural_name = "Расходники"
@@ -195,6 +207,12 @@ class RepairOrderView:
 class ServiceView:
     model = Service
     form_class = ServiceForm
+class ClientView:
+    model = Client
+    form_class = ClientForm
+class VehicleView:
+    model = Vehicle
+    form_class = VehicleForm
 class WarehouseItemView:
     model = WarehouseItem
     form_class = WarehouseItemForm
@@ -214,6 +232,10 @@ class RepairOrderCreateView(RepairOrderView, BaseCreateView):
     pass
 class ServiceCreateView(ServiceView, BaseCreateView):
     pass
+class ClientCreateView(ClientView, BaseCreateView):
+    pass
+class VehicleCreateView(VehicleView, BaseCreateView):
+    pass
 class WarehouseItemCreateView(WarehouseItemView, BaseCreateView):
     pass
 class WarehouseProviderCreateView(WarehouseProviderView, BaseCreateView):
@@ -227,6 +249,10 @@ class EmployeeCreateView(CheckCreatePermissionsMixin, EmployeeView, CreateView):
 class RepairOrderUpdateView(RepairOrderView, BaseUpdateView):
     pass
 class ServiceUpdateView(ServiceView, BaseUpdateView):
+    pass
+class ClientUpdateView(ClientView, BaseUpdateView):
+    pass
+class VehicleUpdateView(VehicleView, BaseUpdateView):
     pass
 class WarehouseItemUpdateView(WarehouseItemView, BaseUpdateView):
     pass

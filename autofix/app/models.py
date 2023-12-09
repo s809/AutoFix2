@@ -25,35 +25,87 @@ def validate_item_count(current, item, name, is_negative = False):
         )
 
 class FullTextSearchMixin:
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.save_search()
-
-    def save_search(self):
-        fields = [[name, value] for [name, value] in self.__dict__.items() if isinstance(value, str) and name != "backend"]
-        self.delete_search()
-        with connection.cursor() as cursor:
-            cursor.execute(f"""
-                INSERT INTO app_{self.__class__.__name__.lower()}_search (id, {', '.join([field[0] for field in fields])})
-                VALUES (%s {", %s" * len(fields)});
-            """, [self.id, *[field[1] for field in fields]])
-
-    def delete(self, *args, **kwargs):
-        super().delete(*args, **kwargs)
-        self.delete_search()
-
-    def delete_search(self):
-        with connection.cursor() as cursor:
-            cursor.execute(f"""
-                DELETE FROM app_{self.__class__.__name__.lower()}_search WHERE id = %s;
-            """, [self.id])
+    search_initialized = False
 
     @classmethod
-    def search(cls, search):
+    def ensure_search_initialized(cls):
+        if cls.search_initialized:
+            return
+
+        model_name = cls.__name__.lower()
+        field_defs = cls.get_search_field_defs()
+
+        def make_insert_stmt():
+            return f"""
+                INSERT INTO app_{model_name}_search
+                    SELECT {",".join(
+                        [f"app_{model_name}.{field}" for field in field_defs[0][1]] +
+                        [",".join([f"{fk_name}.{field} AS {fk_name}_{field}" for field in fields]) for [jcls, fields, fk_name] in field_defs[1:]]
+                    )}
+                    FROM app_{model_name}
+                    {" ".join([f"JOIN app_{jcls.__name__.lower()} {fk_name} ON {jcls.__name__.lower()}.id = {fk_name}_id" for [jcls, fields, fk_name] in field_defs[1:]])}
+                    WHERE 1
+                        {f"AND app_{model_name}.deleted_at IS NULL" if hasattr(cls, "deleted_at") else ""}
+            """
+        def make_delete_stmt():
+            return f"DELETE FROM app_{model_name}_search WHERE id = old.id;"
+
+        with connection.cursor() as cursor:
+            cursor.execute(f"""
+                DROP TABLE IF EXISTS app_{model_name}_search;
+            """)
+            cursor.execute(f"""
+                CREATE VIRTUAL TABLE app_{model_name}_search USING FTS5({",".join(field_defs[0][1] + [",".join([f"{fk_name}_{field}" for field in fields]) for [jcls, fields, fk_name] in field_defs[1:]])});
+            """)
+            cursor.execute(make_insert_stmt() + ";")
+            cursor.execute(f"""
+                CREATE TEMPORARY TRIGGER app_{model_name}_search_insert AFTER INSERT ON app_{model_name} BEGIN
+                    {make_insert_stmt()} AND app_{model_name}.id = new.id;
+                END;
+            """)
+            cursor.execute(f"""
+                CREATE TEMPORARY TRIGGER app_{model_name}_search_update AFTER UPDATE ON app_{model_name} BEGIN
+                    {make_delete_stmt()}
+                    {make_insert_stmt()} AND app_{model_name}.id = new.id;
+                END;
+            """)
+            cursor.execute(f"""
+                CREATE TEMPORARY TRIGGER app_{model_name}_search_delete AFTER DELETE ON app_{model_name} BEGIN
+                    {make_delete_stmt()}
+                END;
+            """)
+
+        cls.search_initialized = True
+
+    @classmethod
+    def get_search_field_defs_with_key(cls, fk_name: str | None):
+        return (
+            cls,
+            (["id"] if not fk_name else []) +
+                [key for [key, value] in cls.__dict__.items()
+                 if hasattr(value, "field") and isinstance(value.field, (models.CharField, PhoneNumberField))],
+            fk_name
+        )
+
+    @classmethod
+    def get_search_field_defs(cls):
+        return [cls.get_search_field_defs_with_key(None)]
+
+    def get_search_field_values(self):
+        self.__class__.ensure_search_initialized()
+        field_defs = self.__class__.get_search_field_defs()
+        return field_defs[0][1] + [[[f"{fk_name}_{field}", getattr(self, field)] for field in fields] for [jcls, fields, fk_name] in field_defs[1:]]
+
+    def get_search_field_values_fk(self, fk_name):
+        return [[f"{fk_name}_{key}", value] for [key, value] in self.get_search_field_values() if key != "id"]
+
+    @classmethod
+    def search(cls, search: str):
+        cls.ensure_search_initialized()
         with connection.cursor() as cursor:
             cursor.execute(f"""
                 SELECT id FROM app_{cls.__name__.lower()}_search (%s);
-            """, [search])
+            """, [" ".join([f"\"{s}\"" for s in search.split()])])
             results = cursor.fetchall()
         return Q(id__in=[result[0] for result in results])
 
@@ -137,20 +189,64 @@ class Service(FullTextSearchMixin, SoftDeleteObject, models.Model):
         return f"{self.name} ({self.price} руб.)"
 
 
+class Client(FullTextSearchMixin, SoftDeleteObject, models.Model):
+    morphed_name = "клиента"
+
+    def get_absolute_url(self):
+        return reverse("client", kwargs={"pk": self.pk})
+
+    full_name = models.CharField("ФИО", max_length=100)
+    phone_number = PhoneNumberField("Номер телефона", region="RU")
+
+    create_allowed_to = [Employee.Position.ServiceManager]
+    edit_allowed_to = [Employee.Position.ServiceManager]
+
+    card_icon = "address-card"
+    def card_title(self):
+        return self.full_name
+    def card_subtitle(self):
+        return self.phone_number
+
+    def __str__(self) -> str:
+        return f"{self.full_name} ({self.phone_number})"
+
+
+class Vehicle(FullTextSearchMixin, SoftDeleteObject, models.Model):
+    morphed_name = "автомобиля"
+
+    def get_absolute_url(self):
+        return reverse("vehicle", kwargs={"pk": self.pk})
+
+    manufacturer = models.CharField("Производитель", max_length=50)
+    model = models.CharField("Модель", max_length=50)
+    year = models.IntegerField("Год выпуска", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    license_number = models.CharField("Гос. номер", max_length=15)
+    vin = models.CharField("VIN автомобиля", max_length=17, validators=[MinLengthValidator(17)])
+
+    create_allowed_to = [Employee.Position.ServiceManager]
+    edit_allowed_to = [Employee.Position.ServiceManager]
+
+    card_icon = "car-side"
+    def card_title(self):
+        return f"{self.manufacturer} {self.model} {self.year} г."
+    def card_subtitle(self):
+        return f"Гос. номер: {self.license_number}"
+    def card_subtitle_extra(self):
+        return f"VIN: {self.vin}"
+
+    def __str__(self) -> str:
+        return f"{self.vin} {self.license_number} {self.manufacturer} {self.model} {self.year} г."
+
+
 class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
     morphed_name = "заявки"
     def get_absolute_url(self):
         return reverse("order", kwargs={"pk": self.pk})
 
     master = models.ForeignKey(Employee, on_delete=models.DO_NOTHING, limit_choices_to={"position": Employee.Position.Mechanic, "end_date__isnull": True}, verbose_name="Мастер")
-    client_name = models.CharField("Имя клиента", max_length=50)
-    client_phone_number = PhoneNumberField("Номер телефона клиента", region="RU")
 
-    vehicle_manufacturer = models.CharField("Производитель автомобиля", max_length=50)
-    vehicle_model = models.CharField("Модель автомобиля", max_length=50)
-    vehicle_year = models.IntegerField("Год выпуска автомобиля", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
-    vehicle_license_number = models.CharField("Гос. номер автомобиля", max_length=15)
-    vehicle_vin = models.CharField("VIN автомобиля", max_length=17, validators=[MinLengthValidator(17)])
+    client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, verbose_name="Клиент")
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.DO_NOTHING, verbose_name="Автомобиль")
     vehicle_mileage = models.IntegerField("Пробег автомобиля, км", validators=[MinValueValidator(0)])
 
     start_date = models.DateField("Дата записи", default=timezone.now)
@@ -189,6 +285,14 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
         if len(errors):
             raise ValidationError(errors)
 
+    @classmethod
+    def get_search_field_defs(cls):
+        return [
+            cls.get_search_field_defs_with_key(None),
+            Client.get_search_field_defs_with_key("client"),
+            Vehicle.get_search_field_defs_with_key("vehicle")
+        ]
+
     def get_total_cost(self):
         return (
             ServiceHistory.objects
@@ -198,10 +302,7 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
 
     card_icon = "car"
     def card_title(self):
-        result = f"№{self.id}: {self.vehicle_manufacturer} {self.vehicle_model} {self.vehicle_year} г."
-        if self.comments:
-            result += f" ({self.comments})"
-        return result
+        return f"№{self.id}: {self.vehicle}"
     def card_tags(self):
         result = {}
         if self.finish_date:
@@ -222,14 +323,14 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
                     else "warning" if self.finish_until == timezone.now().date()
                     else "danger"
             })
+        if self.comments:
+            result.update({f"Комментарий: {self.comments}": "black"})
 
         return result
     def card_subtitle(self):
-        return f"Клиент: {self.client_name}"
+        return f"Клиент: {self.client}"
     def card_subtitle_extra(self):
         return f"Мастер: {self.master}"
-
-# Warehouse
 
 
 class WarehouseProvider(FullTextSearchMixin, SoftDeleteObject, models.Model):
