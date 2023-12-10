@@ -27,8 +27,8 @@ def validate_item_count(current, item, name, is_negative = False):
 class FullTextSearchMixin:
     search_initialized = False
 
-    @classmethod
-    def ensure_search_initialized(cls):
+    @staticmethod
+    def initialize_search(cls):
         if cls.search_initialized:
             return
 
@@ -38,12 +38,12 @@ class FullTextSearchMixin:
         def make_insert_stmt():
             return f"""
                 INSERT INTO app_{model_name}_search
-                    SELECT {",".join(
+                    SELECT {", ".join(
                         [f"app_{model_name}.{field}" for field in field_defs[0][1]] +
-                        [",".join([f"{fk_name}.{field} AS {fk_name}_{field}" for field in fields]) for [jcls, fields, fk_name] in field_defs[1:]]
+                        [", ".join([f"{fk_name}.{field} AS {fk_name}_{field}" for field in fields]) for [jcls, fields, fk_name] in field_defs[1:]]
                     )}
                     FROM app_{model_name}
-                    {" ".join([f"JOIN app_{jcls.__name__.lower()} {fk_name} ON {jcls.__name__.lower()}.id = {fk_name}_id" for [jcls, fields, fk_name] in field_defs[1:]])}
+                    {" ".join([f"JOIN app_{jcls.__name__.lower()} {fk_name} ON {jcls.__name__.lower()}.id = app_{model_name}.{fk_name}_id" for [jcls, fields, fk_name] in field_defs[1:]])}
                     WHERE 1
                         {f"AND app_{model_name}.deleted_at IS NULL" if hasattr(cls, "deleted_at") else ""}
             """
@@ -51,26 +51,40 @@ class FullTextSearchMixin:
             return f"DELETE FROM app_{model_name}_search WHERE id = old.id;"
 
         with connection.cursor() as cursor:
-            cursor.execute(f"""
-                DROP TABLE IF EXISTS app_{model_name}_search;
-            """)
+            cursor.execute(f"DROP TABLE IF EXISTS app_{model_name}_search;")
             cursor.execute(f"""
                 CREATE VIRTUAL TABLE app_{model_name}_search USING FTS5({",".join(field_defs[0][1] + [",".join([f"{fk_name}_{field}" for field in fields]) for [jcls, fields, fk_name] in field_defs[1:]])});
             """)
             cursor.execute(make_insert_stmt() + ";")
+
+            cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_insert;")
             cursor.execute(f"""
-                CREATE TEMPORARY TRIGGER app_{model_name}_search_insert AFTER INSERT ON app_{model_name} BEGIN
+                CREATE TRIGGER app_{model_name}_search_insert AFTER INSERT ON app_{model_name} BEGIN
                     {make_insert_stmt()} AND app_{model_name}.id = new.id;
                 END;
             """)
+
+            cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_update;")
             cursor.execute(f"""
-                CREATE TEMPORARY TRIGGER app_{model_name}_search_update AFTER UPDATE ON app_{model_name} BEGIN
+                CREATE TRIGGER app_{model_name}_search_update AFTER UPDATE ON app_{model_name} BEGIN
                     {make_delete_stmt()}
                     {make_insert_stmt()} AND app_{model_name}.id = new.id;
                 END;
             """)
+
+            for [jcls, fields, fk_name] in field_defs[1:]:
+                cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_update_by_{fk_name};")
+                cursor.execute(f"""
+                    CREATE TRIGGER app_{model_name}_search_update_by_{fk_name} AFTER UPDATE ON app_{jcls.__name__.lower()} BEGIN
+                        DELETE FROM app_{model_name}_search
+                            WHERE id IN (SELECT id FROM app_{model_name} WHERE {fk_name}_id = old.id);
+                        {make_insert_stmt()} AND app_{model_name}.{fk_name}_id = new.id;
+                    END;
+                """)
+
+            cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_delete;")
             cursor.execute(f"""
-                CREATE TEMPORARY TRIGGER app_{model_name}_search_delete AFTER DELETE ON app_{model_name} BEGIN
+                CREATE TRIGGER app_{model_name}_search_delete AFTER DELETE ON app_{model_name} BEGIN
                     {make_delete_stmt()}
                 END;
             """)
@@ -91,17 +105,8 @@ class FullTextSearchMixin:
     def get_search_field_defs(cls):
         return [cls.get_search_field_defs_with_key(None)]
 
-    def get_search_field_values(self):
-        self.__class__.ensure_search_initialized()
-        field_defs = self.__class__.get_search_field_defs()
-        return field_defs[0][1] + [[[f"{fk_name}_{field}", getattr(self, field)] for field in fields] for [jcls, fields, fk_name] in field_defs[1:]]
-
-    def get_search_field_values_fk(self, fk_name):
-        return [[f"{fk_name}_{key}", value] for [key, value] in self.get_search_field_values() if key != "id"]
-
     @classmethod
     def search(cls, search: str):
-        cls.ensure_search_initialized()
         with connection.cursor() as cursor:
             cursor.execute(f"""
                 SELECT id FROM app_{cls.__name__.lower()}_search (%s);
@@ -166,6 +171,7 @@ class Employee(FullTextSearchMixin, AbstractUser):
 
     def __str__(self) -> str:
         return self.full_name() + self.end_date_reason(True)
+FullTextSearchMixin.initialize_search(Employee)
 
 
 class Service(FullTextSearchMixin, SoftDeleteObject, models.Model):
@@ -187,6 +193,7 @@ class Service(FullTextSearchMixin, SoftDeleteObject, models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.price} руб.)"
+FullTextSearchMixin.initialize_search(Service)
 
 
 class Client(FullTextSearchMixin, SoftDeleteObject, models.Model):
@@ -209,6 +216,7 @@ class Client(FullTextSearchMixin, SoftDeleteObject, models.Model):
 
     def __str__(self) -> str:
         return f"{self.full_name} ({self.phone_number})"
+FullTextSearchMixin.initialize_search(Client)
 
 
 class Vehicle(FullTextSearchMixin, SoftDeleteObject, models.Model):
@@ -236,6 +244,7 @@ class Vehicle(FullTextSearchMixin, SoftDeleteObject, models.Model):
 
     def __str__(self) -> str:
         return f"{self.vin} {self.license_number} {self.manufacturer} {self.model} {self.year} г."
+FullTextSearchMixin.initialize_search(Vehicle)
 
 
 class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
@@ -331,6 +340,7 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
         return f"Клиент: {self.client}"
     def card_subtitle_extra(self):
         return f"Мастер: {self.master}"
+FullTextSearchMixin.initialize_search(RepairOrder)
 
 
 class WarehouseProvider(FullTextSearchMixin, SoftDeleteObject, models.Model):
@@ -352,6 +362,7 @@ class WarehouseProvider(FullTextSearchMixin, SoftDeleteObject, models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.contact_info})"
+FullTextSearchMixin.initialize_search(WarehouseProvider)
 
 
 class WarehouseItem(FullTextSearchMixin, SoftDeleteObject, models.Model):
@@ -389,15 +400,16 @@ class WarehouseItem(FullTextSearchMixin, SoftDeleteObject, models.Model):
 
     def __str__(self):
         return f"{self.type} {self.name}" + (f" ({self.get_count()} шт.)" if not self.deleted_at else "")
+FullTextSearchMixin.initialize_search(WarehouseItem)
 
 
-class WarehouseRestock(SoftDeleteObject, models.Model):
+class WarehouseRestock(models.Model):
     morphed_name = "пополнения расходника"
 
     def get_absolute_url(self):
         return reverse("restock", kwargs={"item": self.item.id, "pk": self.pk})
 
-    item = models.ForeignKey(WarehouseItem, on_delete=models.CASCADE, verbose_name="Расходник")
+    item = models.ForeignKey(WarehouseItem, on_delete=models.DO_NOTHING, verbose_name="Расходник")
     provider = models.ForeignKey(WarehouseProvider, on_delete=models.DO_NOTHING, verbose_name="Поставщик")
     amount = models.IntegerField("Количество", validators=[MinValueValidator(1)])
 
@@ -415,13 +427,13 @@ class WarehouseRestock(SoftDeleteObject, models.Model):
     def clean(self):
         validate_item_count(self, self.item, "amount")
 
-class WarehouseUse(SoftDeleteObject, models.Model):
+class WarehouseUse(models.Model):
     morphed_name = "использованного расходника"
 
     def get_absolute_url(self):
         return reverse("warehouse_use", kwargs={"order": self.repair_order.id, "pk": self.pk})
 
-    repair_order = models.ForeignKey(RepairOrder, on_delete=models.CASCADE, verbose_name="Заявка на ремонт")
+    repair_order = models.ForeignKey(RepairOrder, on_delete=models.DO_NOTHING, verbose_name="Заявка на ремонт")
     item = models.ForeignKey(WarehouseItem, on_delete=models.DO_NOTHING, verbose_name="Расходник")
     amount = models.IntegerField("Количество", validators=[MinValueValidator(1)])
 
@@ -439,16 +451,13 @@ class WarehouseUse(SoftDeleteObject, models.Model):
     def clean(self):
         validate_item_count(self, self.item, "amount", True)
 
-
-# Service
-
-class ServiceHistory(SoftDeleteObject, models.Model):
+class ServiceHistory(models.Model):
     morphed_name = "выполненной услуги"
 
     def get_absolute_url(self):
         return reverse("service_history", kwargs={"order": self.repair_order.id, "pk": self.pk})
 
-    repair_order = models.ForeignKey(RepairOrder, on_delete=models.CASCADE, verbose_name="Заявка на ремонт")
+    repair_order = models.ForeignKey(RepairOrder, on_delete=models.DO_NOTHING, verbose_name="Заявка на ремонт")
     service = models.ForeignKey(Service, on_delete=models.DO_NOTHING, verbose_name="Услуга")
 
     finish_date = models.DateField("Дата выполнения", blank=True, null=True)
