@@ -110,13 +110,17 @@ class RepairOrderListView(PaginatedListView):
     template_name = "repair_order_list.html"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        self.master_list = Employee.objects.filter(
-            position = Employee.Position.Mechanic).order_by("last_name", "first_name", "patronymic"
-        )
-        self.filter_master = Employee.objects.filter(id = int(request.GET.get("filter_master", 0))
+        try:
+            filter_master_id = int(request.GET.get("filter_master", 0))
+        except:
+            filter_master_id = 0
+
+        self.master_list = Employee.objects.filter(position = Employee.Position.Mechanic) \
+            .order_by("last_name", "first_name", "patronymic")
+        self.filter_master = Employee.objects.filter(id = filter_master_id
                                                      if request.user.position != Employee.Position.Mechanic
                                                      else request.user.id).first()
-        self.show_finished = int(request.GET.get("show_finished", 0)) == 1
+        self.show_finished = request.GET.get("show_finished") == "1"
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -124,7 +128,7 @@ class RepairOrderListView(PaginatedListView):
         if self.filter_master:
             filter &= Q(master_id = self.filter_master.id)
         if not self.show_finished:
-            filter &= Q(finish_date__isnull = True) | Q(is_paid = False)
+            filter &= Q(finish_date__isnull = True) | Q(is_paid = False, is_cancelled = False)
         return super().get_queryset().filter(filter).order_by("finish_until", "id")
 
 class ServiceListView(PaginatedListView):
@@ -159,7 +163,7 @@ class EmployeeListView(PaginatedListView):
     template_name = "employee_list.html"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        self.show_removed = int(request.GET.get("show_removed", 0)) == 1
+        self.show_removed = request.GET.get("show_removed", "0") == "1"
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -201,9 +205,14 @@ class RepairOrderView:
     ]
 
     def check_permissions(self, request):
-        can_access = request.user.id == self.get_object().master_id if request.user.position == Employee.Position.Mechanic \
-            else True
-        return can_access and super().check_permissions(request)
+        if request.user.position == Employee.Position.Mechanic:
+            try:
+                if not request.user.id == self.get_object().master_id:
+                    return False
+            except:
+                return False
+            
+        return super().check_permissions(request)
 class ServiceView:
     model = Service
     form_class = ServiceForm

@@ -136,7 +136,7 @@ class Employee(FullTextSearchMixin, AbstractUser):
     end_reason = models.CharField("Причина увольнения", max_length=150, blank=True)
 
     create_allowed_to = []
-    edit_allowed_to = Position.values
+    edit_allowed_to = []
 
     card_icon = "user"
     def card_title(self):

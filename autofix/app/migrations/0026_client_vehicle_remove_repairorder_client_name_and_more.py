@@ -78,22 +78,6 @@ class Migration(migrations.Migration):
             name='vehicle_mileage',
             field=models.IntegerField(validators=[django.core.validators.MinValueValidator(0)], verbose_name='Пробег автомобиля, км'),
         ),
-        migrations.RunPython(
-            lambda x, y: app.models.Client.objects.create(
-                name="test",
-                phone_number="+79955443322"
-            ),
-            migrations.RunPython.noop),
-        migrations.RunPython(
-            lambda x, y: app.models.Vehicle.objects.create(
-                manufacturer="TestManufacturer",
-                model="TestModel",
-                year=2023,
-                license_number="ABC123",
-                vin="12345678901234567"
-            ),
-            migrations.RunPython.noop
-        ),
         migrations.AddField(
             model_name='repairorder',
             name='client',

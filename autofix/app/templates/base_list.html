@@ -14,7 +14,7 @@
                 {% endif %}
             {% endfor %}
             <input class="form-control me-2" name="search" type="search" placeholder="Поиск" value="{{ request.GET.search }}">
-            <button class="btn btn-outline-success" type="submit">
+            <button class="btn btn-outline-success" type="submit" title="Поиск">
                 <i class="fa-solid fa-search"></i>
             </button>
         </form>
@@ -38,7 +38,7 @@
 
                     {% if not view.hide_delete %}
                         {% if not view.model.create_allowed_to or request.user.position in view.model.create_allowed_to or request.user.position == "AD" %}
-                            <a href="{{ item.get_absolute_url }}?delete" class="my-auto">
+                            <a href="{{ item.get_absolute_url }}?delete" class="my-auto" title="Удалить">
                                 <button class="btn btn-light w-auto align-self-center" style="aspect-ratio: 1;">
                                     <i class="fa-solid fa-trash fa-2x"></i>
                                 </button>
