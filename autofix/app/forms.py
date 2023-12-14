@@ -227,7 +227,7 @@ class RepairOrderForm(ModelForm):
             ),
             Fieldset(
                 'Заявка',
-                Column('start_date', 'finish_until', 'finish_date' if kwargs["instance"] else None),
+                Column('start_date', *(['finish_until', 'finish_date'] if kwargs["instance"] else [])),
                 'is_cancelled' if kwargs["instance"] else None,
                 'complaints',
                 'is_warranty'

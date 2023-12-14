@@ -1,3 +1,4 @@
+import sys
 from django.db import connection, models
 from django.db.models import Sum, Q
 from django.contrib.auth.models import *
@@ -52,42 +53,47 @@ class FullTextSearchMixin:
 
         with connection.cursor() as cursor:
             cursor.execute(f"DROP TABLE IF EXISTS app_{model_name}_search;")
-            cursor.execute(f"""
-                CREATE VIRTUAL TABLE app_{model_name}_search USING FTS5({",".join(field_defs[0][1] + [",".join([f"{fk_name}_{field}" for field in fields]) for [jcls, fields, fk_name] in field_defs[1:]])});
-            """)
-            cursor.execute(make_insert_stmt() + ";")
+            if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
+                cursor.execute(f"""
+                    CREATE VIRTUAL TABLE app_{model_name}_search USING FTS5({",".join(field_defs[0][1] + [",".join([f"{fk_name}_{field}" for field in fields]) for [jcls, fields, fk_name] in field_defs[1:]])});
+                """)
+                cursor.execute(make_insert_stmt() + ";")
 
             cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_insert;")
-            cursor.execute(f"""
-                CREATE TRIGGER app_{model_name}_search_insert AFTER INSERT ON app_{model_name} BEGIN
-                    {make_insert_stmt()} AND app_{model_name}.id = new.id;
-                END;
-            """)
-
-            cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_update;")
-            cursor.execute(f"""
-                CREATE TRIGGER app_{model_name}_search_update AFTER UPDATE ON app_{model_name} BEGIN
-                    {make_delete_stmt()}
-                    {make_insert_stmt()} AND app_{model_name}.id = new.id;
-                END;
-            """)
-
-            for [jcls, fields, fk_name] in field_defs[1:]:
-                cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_update_by_{fk_name};")
+            if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
                 cursor.execute(f"""
-                    CREATE TRIGGER app_{model_name}_search_update_by_{fk_name} AFTER UPDATE ON app_{jcls.__name__.lower()} BEGIN
-                        DELETE FROM app_{model_name}_search
-                            WHERE id IN (SELECT id FROM app_{model_name} WHERE {fk_name}_id = old.id);
-                        {make_insert_stmt()} AND app_{model_name}.{fk_name}_id = new.id;
+                    CREATE TRIGGER app_{model_name}_search_insert AFTER INSERT ON app_{model_name} BEGIN
+                        {make_insert_stmt()} AND app_{model_name}.id = new.id;
                     END;
                 """)
 
+            cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_update;")
+            if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
+                cursor.execute(f"""
+                    CREATE TRIGGER app_{model_name}_search_update AFTER UPDATE ON app_{model_name} BEGIN
+                        {make_delete_stmt()}
+                        {make_insert_stmt()} AND app_{model_name}.id = new.id;
+                    END;
+                """)
+
+            for [jcls, fields, fk_name] in field_defs[1:]:
+                cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_update_by_{fk_name};")
+                if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
+                    cursor.execute(f"""
+                        CREATE TRIGGER app_{model_name}_search_update_by_{fk_name} AFTER UPDATE ON app_{jcls.__name__.lower()} BEGIN
+                            DELETE FROM app_{model_name}_search
+                                WHERE id IN (SELECT id FROM app_{model_name} WHERE {fk_name}_id = old.id);
+                            {make_insert_stmt()} AND app_{model_name}.{fk_name}_id = new.id;
+                        END;
+                    """)
+
             cursor.execute(f"DROP TRIGGER IF EXISTS app_{model_name}_search_delete;")
-            cursor.execute(f"""
-                CREATE TRIGGER app_{model_name}_search_delete AFTER DELETE ON app_{model_name} BEGIN
-                    {make_delete_stmt()}
-                END;
-            """)
+            if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
+                cursor.execute(f"""
+                    CREATE TRIGGER app_{model_name}_search_delete AFTER DELETE ON app_{model_name} BEGIN
+                        {make_delete_stmt()}
+                    END;
+                """)
 
         cls.search_initialized = True
 
@@ -259,7 +265,7 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
     vehicle_mileage = models.IntegerField("Пробег автомобиля, км", validators=[MinValueValidator(0)])
 
     start_date = models.DateField("Дата записи", default=timezone.now)
-    finish_until = models.DateField("Завершить до")
+    finish_until = models.DateField("Завершить до", blank=True, null=True)
     finish_date = models.DateField("Дата завершения", blank=True, null=True)
     is_cancelled = models.BooleanField("Отменена")
 
@@ -279,7 +285,7 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
         errors = {}
         if self.is_warranty:
             self.is_paid = bool(self.finish_date and not self.is_cancelled)
-        if self.finish_until < self.start_date:
+        if self.finish_until and self.finish_until < self.start_date:
             errors.update({
                 "finish_until": "Дата запланированного завершения заявки не может раньше даты начала."
             })
@@ -319,19 +325,21 @@ class RepairOrder(FullTextSearchMixin, SoftDeleteObject, models.Model):
                 result.update({ "Отменен": "secondary" })
             else:
                 result.update({ f"Завершен {self.finish_date.strftime(datetime_format)}": "secondary" })
-                if self.finish_until < self.finish_date:
+                if self.finish_until and self.finish_until < self.finish_date:
                     result.update({ f"Просрочен": "danger" })
                 if not self.is_paid:
                     result.update({ "Не оплачен": "primary" })
                 elif self.is_warranty:
                     result.update({ "Гарантийный": "primary" })
-        else:
+        elif self.finish_until:
             result.update({
                 f"Завершить до: {self.finish_until.strftime(datetime_format)}":
                     "secondary" if self.finish_until > timezone.now().date()
                     else "warning" if self.finish_until == timezone.now().date()
                     else "danger"
             })
+        else:
+            result.update({ f"Создана: {self.start_date.strftime(datetime_format)}": "secondary" })
         if self.comments:
             result.update({f"Комментарий: {self.comments}": "black"})
 

@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
 
+handler404 = views.PageNotFoundView
+
 urlpatterns = [
     path('', views.HomePageView, name='home'),
 

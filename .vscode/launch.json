@@ -22,7 +22,9 @@
             "program": "${workspaceFolder}/autofix/manage.py",
             "args": [
                 "test",
-                "app"
+                "app",
+                //"-v",
+                //"2"
             ],
             "django": true,
             "justMyCode": false

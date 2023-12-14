@@ -1,7 +1,7 @@
 from typing import Any
 from django.db.models.query import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.views.generic import *
 from django.views.generic.edit import DeletionMixin
 from django.urls import *
@@ -211,7 +211,7 @@ class RepairOrderView:
                     return False
             except:
                 return False
-            
+
         return super().check_permissions(request)
 class ServiceView:
     model = Service
@@ -327,6 +327,9 @@ class WarehouseRestockUpdateView(WarehouseRestockView, BaseUpdateView):
 #region Independent views
 def RedirectUpView(request, *args, **kwargs):
     return redirect('..')
+
+def PageNotFoundView(request, *args, **kwargs):
+    return render(request, "404.html")
 
 def HomePageView(request):
     if request.user.is_authenticated:
